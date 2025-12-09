@@ -258,7 +258,7 @@ function StaticMapView({
 }) {
   const { theme, isDark } = useTheme();
   
-  const mapHeight = 220;
+  const mapHeight = 240;
   const centerLat = 34.0522;
   const centerLng = -118.2437;
   const latRange = 0.35;
@@ -274,59 +274,126 @@ function StaticMapView({
 
   const [containerWidth, setContainerWidth] = React.useState(380);
 
-  const roads = [
-    { x: 0.1, y: 0.30, horizontal: true },
-    { x: 0.20, y: 0.1, horizontal: false },
-    { x: 0.50, y: 0.15, horizontal: false },
-    { x: 0.80, y: 0.20, horizontal: false },
-    { x: 0.05, y: 0.60, horizontal: true },
-    { x: 0.30, y: 0.45, horizontal: true },
-    { x: 0.15, y: 0.75, horizontal: true },
-    { x: 0.35, y: 0.05, horizontal: false },
-    { x: 0.65, y: 0.10, horizontal: false },
+  const majorRoads = [
+    { x: 0.08, y: 0.35, w: 0.85, h: 4, horizontal: true },
+    { x: 0.05, y: 0.55, w: 0.90, h: 4, horizontal: true },
+    { x: 0.10, y: 0.75, w: 0.80, h: 4, horizontal: true },
+    { x: 0.25, y: 0.05, w: 4, h: 0.90, horizontal: false },
+    { x: 0.50, y: 0.08, w: 4, h: 0.85, horizontal: false },
+    { x: 0.75, y: 0.10, w: 4, h: 0.80, horizontal: false },
   ];
 
-  const neighborhoods = [
-    { name: 'Hollywood', x: 0.25, y: 0.25 },
-    { name: 'Downtown', x: 0.55, y: 0.55 },
-    { name: 'Santa Monica', x: 0.15, y: 0.70 },
-    { name: 'Pasadena', x: 0.75, y: 0.20 },
+  const minorRoads = [
+    { x: 0.15, y: 0.20, w: 0.70, h: 2, horizontal: true },
+    { x: 0.20, y: 0.45, w: 0.60, h: 2, horizontal: true },
+    { x: 0.12, y: 0.65, w: 0.75, h: 2, horizontal: true },
+    { x: 0.18, y: 0.85, w: 0.65, h: 2, horizontal: true },
+    { x: 0.35, y: 0.12, w: 2, h: 0.75, horizontal: false },
+    { x: 0.62, y: 0.15, w: 2, h: 0.70, horizontal: false },
+    { x: 0.88, y: 0.20, w: 2, h: 0.60, horizontal: false },
   ];
+
+  const parks = [
+    { x: 0.22, y: 0.12, w: 0.12, h: 0.10, name: 'Griffith' },
+    { x: 0.70, y: 0.60, w: 0.08, h: 0.12, name: 'Echo' },
+    { x: 0.05, y: 0.82, w: 0.15, h: 0.08, name: '' },
+  ];
+
+  const districts = [
+    { name: 'Hollywood', x: 0.28, y: 0.28, icon: 'star' },
+    { name: 'Downtown', x: 0.58, y: 0.48, icon: 'home' },
+    { name: 'Santa Monica', x: 0.08, y: 0.62, icon: 'sun' },
+    { name: 'Pasadena', x: 0.78, y: 0.18, icon: 'book' },
+    { name: 'Venice', x: 0.05, y: 0.78, icon: 'compass' },
+    { name: 'Koreatown', x: 0.45, y: 0.42, icon: 'grid' },
+  ];
+
+  const landColor = isDark ? '#2A4A6A' : '#C8E6C9';
+  const oceanColor = isDark ? '#1A365D' : '#81D4FA';
+  const parkColor = isDark ? '#1B5E20' : '#66BB6A';
+  const roadColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.85)';
+  const minorRoadColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.5)';
 
   return (
     <View 
       style={styles.snapMapContainer}
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
-      <View style={[styles.snapMap, { backgroundColor: isDark ? '#1E3A5F' : '#A8D5BA' }]}>
-        {roads.map((road, i) => (
+      <View style={[styles.snapMap, { backgroundColor: landColor }]}>
+        <View style={[styles.oceanArea, { backgroundColor: oceanColor, width: containerWidth * 0.12 }]} />
+        <View style={[styles.oceanWave, { backgroundColor: isDark ? '#2196F3' : '#4FC3F7', left: containerWidth * 0.10 }]} />
+        <View style={[styles.oceanWave, { backgroundColor: isDark ? '#1976D2' : '#29B6F6', left: containerWidth * 0.08, opacity: 0.5 }]} />
+        
+        {parks.map((park, i) => (
           <View 
-            key={i}
+            key={`park-${i}`}
+            style={[
+              styles.parkArea,
+              {
+                left: park.x * containerWidth,
+                top: park.y * mapHeight,
+                width: park.w * containerWidth,
+                height: park.h * mapHeight,
+                backgroundColor: parkColor,
+              }
+            ]}
+          >
+            {park.name ? (
+              <ThemedText style={[styles.parkLabel, { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)' }]}>
+                {park.name}
+              </ThemedText>
+            ) : null}
+          </View>
+        ))}
+
+        {minorRoads.map((road, i) => (
+          <View 
+            key={`minor-${i}`}
             style={[
               styles.mapRoad,
               {
                 left: road.x * containerWidth,
                 top: road.y * mapHeight,
-                width: road.horizontal ? containerWidth * 0.8 : 3,
-                height: road.horizontal ? 3 : mapHeight * 0.7,
-                backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)',
+                width: road.horizontal ? road.w * containerWidth : road.w,
+                height: road.horizontal ? road.h : road.h * mapHeight,
+                backgroundColor: minorRoadColor,
               }
             ]}
           />
         ))}
-        
-        {neighborhoods.map((hood, i) => (
-          <View key={i} style={[styles.neighborhoodLabel, { left: hood.x * containerWidth, top: hood.y * mapHeight }]}>
-            <ThemedText style={[styles.neighborhoodText, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)' }]}>
-              {hood.name}
-            </ThemedText>
+
+        {majorRoads.map((road, i) => (
+          <View 
+            key={`major-${i}`}
+            style={[
+              styles.mapRoad,
+              {
+                left: road.x * containerWidth,
+                top: road.y * mapHeight,
+                width: road.horizontal ? road.w * containerWidth : road.w,
+                height: road.horizontal ? road.h : road.h * mapHeight,
+                backgroundColor: roadColor,
+                borderRadius: 2,
+              }
+            ]}
+          />
+        ))}
+
+        {districts.map((district, i) => (
+          <View key={`district-${i}`} style={[styles.districtLabel, { left: district.x * containerWidth, top: district.y * mapHeight }]}>
+            <View style={[styles.districtBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.7)' }]}>
+              <Feather name={district.icon as any} size={8} color={isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)'} />
+              <ThemedText style={[styles.districtText, { color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)' }]}>
+                {district.name}
+              </ThemedText>
+            </View>
           </View>
         ))}
 
         {events.slice(0, 20).map((event, index) => {
           const x = lngToX(event.longitude, containerWidth);
           const y = latToY(event.latitude);
-          if (x < 10 || x > containerWidth - 10 || y < 10 || y > mapHeight - 10) return null;
+          if (x < 20 || x > containerWidth - 20 || y < 15 || y > mapHeight - 25) return null;
           const color = EventColors[event.category] || theme.primary;
           return (
             <Pressable
@@ -334,13 +401,14 @@ function StaticMapView({
               style={[
                 styles.snapMarker,
                 { 
-                  left: x - 14, 
-                  top: y - 14,
+                  left: x - 16, 
+                  top: y - 40,
                   zIndex: 100 + index,
                 }
               ]}
               onPress={() => onEventPress(event)}
             >
+              <View style={[styles.markerGlow, { backgroundColor: color }]} />
               <View style={[styles.snapMarkerOuter, { backgroundColor: color }]}>
                 <View style={styles.snapMarkerInner}>
                   <Feather 
@@ -350,7 +418,7 @@ function StaticMapView({
                       event.category === "arts" ? "image" : 
                       event.category === "bars" ? "moon" : "music"
                     } 
-                    size={12} 
+                    size={14} 
                     color={color} 
                   />
                 </View>
@@ -361,14 +429,32 @@ function StaticMapView({
         })}
       </View>
       
-      <View style={[styles.snapMapOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.1)' }]}>
-        <View style={styles.snapMapHeader}>
-          <View style={[styles.snapLocationBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }]}>
-            <Feather name="map-pin" size={12} color={isDark ? '#fff' : '#333'} />
-            <ThemedText style={[styles.snapLocationText, { color: isDark ? '#fff' : '#333' }]}>
-              Los Angeles, CA
-            </ThemedText>
-          </View>
+      <View style={styles.mapHeaderOverlay}>
+        <View style={[styles.snapLocationBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}>
+          <Feather name="map-pin" size={14} color={isDark ? '#FF6B6B' : '#E53935'} />
+          <ThemedText style={[styles.snapLocationText, { color: isDark ? '#fff' : '#333' }]}>
+            Los Angeles, CA
+          </ThemedText>
+        </View>
+        <View style={[styles.eventCountBadge, { backgroundColor: isDark ? 'rgba(99,102,241,0.8)' : 'rgba(99,102,241,0.9)' }]}>
+          <ThemedText style={styles.eventCountText}>
+            {events.length} events
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.mapLegendBar}>
+        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
+          <View style={[styles.legendDot, { backgroundColor: EventColors.entertainment }]} />
+          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Shows</ThemedText>
+        </View>
+        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
+          <View style={[styles.legendDot, { backgroundColor: EventColors.sports }]} />
+          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Sports</ThemedText>
+        </View>
+        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
+          <View style={[styles.legendDot, { backgroundColor: EventColors.food }]} />
+          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Food</ThemedText>
         </View>
       </View>
     </View>
