@@ -1,11 +1,9 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { HeaderTitle } from "@/components/HeaderTitle";
-import MapScreen from "@/screens/MapScreen";
-import EventListScreen from "@/screens/EventListScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import EventDetailsModal from "@/screens/EventDetailsModal";
+import SwipeableTabsNavigator from "./SwipeableTabsNavigator";
 
 export type Event = {
   id: string;
@@ -22,8 +20,7 @@ export type Event = {
 };
 
 export type RootStackParamList = {
-  Map: undefined;
-  EventList: undefined;
+  Home: undefined;
   Settings: undefined;
   EventDetails: { event: Event };
 };
@@ -37,18 +34,10 @@ export default function RootStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="Map"
-        component={MapScreen}
+        name="Home"
+        component={SwipeableTabsNavigator}
         options={{
-          headerTitle: () => <HeaderTitle title="LA Events" />,
-        }}
-      />
-      <Stack.Screen
-        name="EventList"
-        component={EventListScreen}
-        options={{
-          ...opaqueScreenOptions,
-          headerTitle: "Events List",
+          headerShown: false,
         }}
       />
       <Stack.Screen

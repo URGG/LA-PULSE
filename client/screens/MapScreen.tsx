@@ -13,7 +13,7 @@ import {
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
-import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -959,20 +959,6 @@ export default function MapScreen() {
     return EventColors[category] || EventColors.entertainment;
   };
 
-  React.useLayoutEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <HeaderButton onPress={() => navigation.navigate("EventList")}>
-          <Feather name="list" size={22} color={theme.text} />
-        </HeaderButton>
-      ),
-      headerRight: () => (
-        <HeaderButton onPress={() => navigation.navigate("Settings")}>
-          <Feather name="settings" size={22} color={theme.text} />
-        </HeaderButton>
-      ),
-    });
-  }, [navigation, theme]);
 
   if (Platform.OS === "web" || !mapsAvailable) {
     return (
