@@ -11,6 +11,7 @@ import {
   FlatList,
 } from "react-native";
 import { Image } from "expo-image";
+import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
 import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -257,8 +258,10 @@ function StaticMapView({
   onEventPress: (event: Event) => void;
 }) {
   const { theme, isDark } = useTheme();
+  const Svg = require('react-native-svg').default;
+  const { Defs, LinearGradient, Stop, Path, Circle, Rect, G, Text: SvgText } = require('react-native-svg');
   
-  const mapHeight = 240;
+  const mapHeight = 280;
   const centerLat = 34.0522;
   const centerLng = -118.2437;
   const latRange = 0.35;
@@ -274,126 +277,196 @@ function StaticMapView({
 
   const [containerWidth, setContainerWidth] = React.useState(380);
 
-  const majorRoads = [
-    { x: 0.08, y: 0.35, w: 0.85, h: 4, horizontal: true },
-    { x: 0.05, y: 0.55, w: 0.90, h: 4, horizontal: true },
-    { x: 0.10, y: 0.75, w: 0.80, h: 4, horizontal: true },
-    { x: 0.25, y: 0.05, w: 4, h: 0.90, horizontal: false },
-    { x: 0.50, y: 0.08, w: 4, h: 0.85, horizontal: false },
-    { x: 0.75, y: 0.10, w: 4, h: 0.80, horizontal: false },
-  ];
-
-  const minorRoads = [
-    { x: 0.15, y: 0.20, w: 0.70, h: 2, horizontal: true },
-    { x: 0.20, y: 0.45, w: 0.60, h: 2, horizontal: true },
-    { x: 0.12, y: 0.65, w: 0.75, h: 2, horizontal: true },
-    { x: 0.18, y: 0.85, w: 0.65, h: 2, horizontal: true },
-    { x: 0.35, y: 0.12, w: 2, h: 0.75, horizontal: false },
-    { x: 0.62, y: 0.15, w: 2, h: 0.70, horizontal: false },
-    { x: 0.88, y: 0.20, w: 2, h: 0.60, horizontal: false },
-  ];
-
-  const parks = [
-    { x: 0.22, y: 0.12, w: 0.12, h: 0.10, name: 'Griffith' },
-    { x: 0.70, y: 0.60, w: 0.08, h: 0.12, name: 'Echo' },
-    { x: 0.05, y: 0.82, w: 0.15, h: 0.08, name: '' },
-  ];
-
-  const districts = [
-    { name: 'Hollywood', x: 0.28, y: 0.28, icon: 'star' },
-    { name: 'Downtown', x: 0.58, y: 0.48, icon: 'home' },
-    { name: 'Santa Monica', x: 0.08, y: 0.62, icon: 'sun' },
-    { name: 'Pasadena', x: 0.78, y: 0.18, icon: 'book' },
-    { name: 'Venice', x: 0.05, y: 0.78, icon: 'compass' },
-    { name: 'Koreatown', x: 0.45, y: 0.42, icon: 'grid' },
-  ];
-
-  const landColor = isDark ? '#2A4A6A' : '#C8E6C9';
-  const oceanColor = isDark ? '#1A365D' : '#81D4FA';
-  const parkColor = isDark ? '#1B5E20' : '#66BB6A';
-  const roadColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.85)';
-  const minorRoadColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.5)';
-
   return (
     <View 
       style={styles.snapMapContainer}
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
     >
-      <View style={[styles.snapMap, { backgroundColor: landColor }]}>
-        <View style={[styles.oceanArea, { backgroundColor: oceanColor, width: containerWidth * 0.12 }]} />
-        <View style={[styles.oceanWave, { backgroundColor: isDark ? '#2196F3' : '#4FC3F7', left: containerWidth * 0.10 }]} />
-        <View style={[styles.oceanWave, { backgroundColor: isDark ? '#1976D2' : '#29B6F6', left: containerWidth * 0.08, opacity: 0.5 }]} />
-        
-        {parks.map((park, i) => (
-          <View 
-            key={`park-${i}`}
-            style={[
-              styles.parkArea,
-              {
-                left: park.x * containerWidth,
-                top: park.y * mapHeight,
-                width: park.w * containerWidth,
-                height: park.h * mapHeight,
-                backgroundColor: parkColor,
-              }
-            ]}
+      <View style={styles.snapMap}>
+        <Svg width={containerWidth} height={mapHeight} viewBox={`0 0 ${containerWidth} ${mapHeight}`}>
+          <Defs>
+            <LinearGradient id="landGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={isDark ? "#1a2f4a" : "#e8f5e9"} />
+              <Stop offset="50%" stopColor={isDark ? "#234567" : "#c8e6c9"} />
+              <Stop offset="100%" stopColor={isDark ? "#1e3a5f" : "#a5d6a7"} />
+            </LinearGradient>
+            <LinearGradient id="oceanGradient" x1="100%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor={isDark ? "#0d47a1" : "#4fc3f7"} />
+              <Stop offset="40%" stopColor={isDark ? "#1565c0" : "#29b6f6"} />
+              <Stop offset="100%" stopColor={isDark ? "#1976d2" : "#03a9f4"} />
+            </LinearGradient>
+            <LinearGradient id="parkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor={isDark ? "#2e7d32" : "#81c784"} />
+              <Stop offset="100%" stopColor={isDark ? "#1b5e20" : "#66bb6a"} />
+            </LinearGradient>
+            <LinearGradient id="beachGradient" x1="100%" y1="0%" x2="0%" y2="0%">
+              <Stop offset="0%" stopColor={isDark ? "#5d4e37" : "#fff8e1"} />
+              <Stop offset="100%" stopColor={isDark ? "#4e342e" : "#ffe082"} />
+            </LinearGradient>
+          </Defs>
+
+          <Rect x="0" y="0" width={containerWidth} height={mapHeight} fill="url(#landGradient)" />
+
+          <Path
+            d={`M0,0 L0,${mapHeight} L${containerWidth * 0.08},${mapHeight} 
+                Q${containerWidth * 0.12},${mapHeight * 0.85} ${containerWidth * 0.10},${mapHeight * 0.70}
+                Q${containerWidth * 0.08},${mapHeight * 0.55} ${containerWidth * 0.12},${mapHeight * 0.40}
+                Q${containerWidth * 0.15},${mapHeight * 0.25} ${containerWidth * 0.10},${mapHeight * 0.10}
+                L${containerWidth * 0.08},0 Z`}
+            fill="url(#oceanGradient)"
+          />
+
+          <Path
+            d={`M${containerWidth * 0.08},${mapHeight} 
+                Q${containerWidth * 0.12},${mapHeight * 0.85} ${containerWidth * 0.10},${mapHeight * 0.70}
+                Q${containerWidth * 0.08},${mapHeight * 0.55} ${containerWidth * 0.12},${mapHeight * 0.40}
+                Q${containerWidth * 0.15},${mapHeight * 0.25} ${containerWidth * 0.10},${mapHeight * 0.10}
+                L${containerWidth * 0.12},${mapHeight * 0.10}
+                Q${containerWidth * 0.17},${mapHeight * 0.25} ${containerWidth * 0.14},${mapHeight * 0.40}
+                Q${containerWidth * 0.10},${mapHeight * 0.55} ${containerWidth * 0.14},${mapHeight * 0.70}
+                Q${containerWidth * 0.16},${mapHeight * 0.85} ${containerWidth * 0.10},${mapHeight} Z`}
+            fill="url(#beachGradient)"
+            opacity={0.6}
+          />
+
+          <Path
+            d={`M${containerWidth * 0.18},${mapHeight * 0.08} 
+                Q${containerWidth * 0.25},${mapHeight * 0.05} ${containerWidth * 0.35},${mapHeight * 0.10}
+                Q${containerWidth * 0.40},${mapHeight * 0.15} ${containerWidth * 0.38},${mapHeight * 0.22}
+                Q${containerWidth * 0.32},${mapHeight * 0.25} ${containerWidth * 0.25},${mapHeight * 0.20}
+                Q${containerWidth * 0.18},${mapHeight * 0.15} ${containerWidth * 0.18},${mapHeight * 0.08} Z`}
+            fill="url(#parkGradient)"
+            opacity={0.9}
+          />
+          <SvgText
+            x={containerWidth * 0.28}
+            y={mapHeight * 0.16}
+            fontSize="9"
+            fontWeight="500"
+            fill={isDark ? "rgba(255,255,255,0.5)" : "rgba(0,80,0,0.5)"}
+            textAnchor="middle"
           >
-            {park.name ? (
-              <ThemedText style={[styles.parkLabel, { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)' }]}>
-                {park.name}
-              </ThemedText>
-            ) : null}
-          </View>
-        ))}
+            Griffith Park
+          </SvgText>
 
-        {minorRoads.map((road, i) => (
-          <View 
-            key={`minor-${i}`}
-            style={[
-              styles.mapRoad,
-              {
-                left: road.x * containerWidth,
-                top: road.y * mapHeight,
-                width: road.horizontal ? road.w * containerWidth : road.w,
-                height: road.horizontal ? road.h : road.h * mapHeight,
-                backgroundColor: minorRoadColor,
-              }
-            ]}
-          />
-        ))}
+          <Circle cx={containerWidth * 0.72} cy={mapHeight * 0.65} r={18} fill="url(#parkGradient)" opacity={0.8} />
+          
+          <Circle cx={containerWidth * 0.08} cy={mapHeight * 0.88} r={12} fill="url(#parkGradient)" opacity={0.7} />
 
-        {majorRoads.map((road, i) => (
-          <View 
-            key={`major-${i}`}
-            style={[
-              styles.mapRoad,
-              {
-                left: road.x * containerWidth,
-                top: road.y * mapHeight,
-                width: road.horizontal ? road.w * containerWidth : road.w,
-                height: road.horizontal ? road.h : road.h * mapHeight,
-                backgroundColor: roadColor,
-                borderRadius: 2,
-              }
-            ]}
-          />
-        ))}
+          <G opacity={isDark ? 0.35 : 0.65}>
+            <Path
+              d={`M${containerWidth * 0.12},${mapHeight * 0.35} 
+                  Q${containerWidth * 0.35},${mapHeight * 0.32} ${containerWidth * 0.55},${mapHeight * 0.36}
+                  Q${containerWidth * 0.75},${mapHeight * 0.38} ${containerWidth * 0.95},${mapHeight * 0.34}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.10},${mapHeight * 0.55} 
+                  Q${containerWidth * 0.30},${mapHeight * 0.58} ${containerWidth * 0.50},${mapHeight * 0.54}
+                  Q${containerWidth * 0.70},${mapHeight * 0.52} ${containerWidth * 0.92},${mapHeight * 0.56}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.15},${mapHeight * 0.78} 
+                  Q${containerWidth * 0.40},${mapHeight * 0.75} ${containerWidth * 0.60},${mapHeight * 0.80}
+                  Q${containerWidth * 0.80},${mapHeight * 0.82} ${containerWidth * 0.90},${mapHeight * 0.76}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={4}
+              fill="none"
+              strokeLinecap="round"
+            />
 
-        {districts.map((district, i) => (
-          <View key={`district-${i}`} style={[styles.districtLabel, { left: district.x * containerWidth, top: district.y * mapHeight }]}>
-            <View style={[styles.districtBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.7)' }]}>
-              <Feather name={district.icon as any} size={8} color={isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)'} />
-              <ThemedText style={[styles.districtText, { color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)' }]}>
-                {district.name}
-              </ThemedText>
-            </View>
-          </View>
-        ))}
+            <Path
+              d={`M${containerWidth * 0.28},${mapHeight * 0.08} 
+                  Q${containerWidth * 0.26},${mapHeight * 0.30} ${containerWidth * 0.30},${mapHeight * 0.50}
+                  Q${containerWidth * 0.34},${mapHeight * 0.70} ${containerWidth * 0.32},${mapHeight * 0.92}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={4}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.52},${mapHeight * 0.05} 
+                  Q${containerWidth * 0.48},${mapHeight * 0.25} ${containerWidth * 0.50},${mapHeight * 0.50}
+                  Q${containerWidth * 0.52},${mapHeight * 0.75} ${containerWidth * 0.48},${mapHeight * 0.95}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={5}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.75},${mapHeight * 0.10} 
+                  Q${containerWidth * 0.78},${mapHeight * 0.35} ${containerWidth * 0.74},${mapHeight * 0.55}
+                  Q${containerWidth * 0.70},${mapHeight * 0.75} ${containerWidth * 0.78},${mapHeight * 0.88}`}
+              stroke={isDark ? "#ffffff" : "#fafafa"}
+              strokeWidth={4}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </G>
 
-        {events.slice(0, 20).map((event, index) => {
+          <G opacity={isDark ? 0.2 : 0.45}>
+            <Path
+              d={`M${containerWidth * 0.18},${mapHeight * 0.22} 
+                  Q${containerWidth * 0.50},${mapHeight * 0.20} ${containerWidth * 0.85},${mapHeight * 0.25}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.20},${mapHeight * 0.45} 
+                  Q${containerWidth * 0.50},${mapHeight * 0.42} ${containerWidth * 0.80},${mapHeight * 0.48}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.15},${mapHeight * 0.68} 
+                  Q${containerWidth * 0.50},${mapHeight * 0.72} ${containerWidth * 0.88},${mapHeight * 0.65}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.40},${mapHeight * 0.12} 
+                  Q${containerWidth * 0.38},${mapHeight * 0.50} ${containerWidth * 0.42},${mapHeight * 0.90}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.62},${mapHeight * 0.08} 
+                  Q${containerWidth * 0.66},${mapHeight * 0.50} ${containerWidth * 0.60},${mapHeight * 0.92}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+            <Path
+              d={`M${containerWidth * 0.88},${mapHeight * 0.15} 
+                  Q${containerWidth * 0.84},${mapHeight * 0.50} ${containerWidth * 0.90},${mapHeight * 0.85}`}
+              stroke={isDark ? "#ffffff" : "#ffffff"}
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </G>
+        </Svg>
+
+        {events.slice(0, 15).map((event, index) => {
           const x = lngToX(event.longitude, containerWidth);
           const y = latToY(event.latitude);
-          if (x < 20 || x > containerWidth - 20 || y < 15 || y > mapHeight - 25) return null;
+          if (x < 25 || x > containerWidth - 25 || y < 50 || y > mapHeight - 35) return null;
           const color = EventColors[event.category] || theme.primary;
           return (
             <Pressable
@@ -401,8 +474,8 @@ function StaticMapView({
               style={[
                 styles.snapMarker,
                 { 
-                  left: x - 16, 
-                  top: y - 40,
+                  left: x - 14, 
+                  top: y - 36,
                   zIndex: 100 + index,
                 }
               ]}
@@ -418,7 +491,7 @@ function StaticMapView({
                       event.category === "arts" ? "image" : 
                       event.category === "bars" ? "moon" : "music"
                     } 
-                    size={14} 
+                    size={12} 
                     color={color} 
                   />
                 </View>
@@ -430,32 +503,35 @@ function StaticMapView({
       </View>
       
       <View style={styles.mapHeaderOverlay}>
-        <View style={[styles.snapLocationBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}>
-          <Feather name="map-pin" size={14} color={isDark ? '#FF6B6B' : '#E53935'} />
-          <ThemedText style={[styles.snapLocationText, { color: isDark ? '#fff' : '#333' }]}>
-            Los Angeles, CA
+        <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.glassCard}>
+          <View style={styles.locationRow}>
+            <View style={[styles.locationDot, { backgroundColor: '#ef4444' }]} />
+            <ThemedText style={[styles.locationText, { color: isDark ? '#fff' : '#1f2937' }]}>
+              Los Angeles
+            </ThemedText>
+          </View>
+        </BlurView>
+        <BlurView intensity={90} tint="dark" style={[styles.glassCard, styles.eventBadge]}>
+          <ThemedText style={styles.eventBadgeText}>
+            {events.length} events nearby
           </ThemedText>
-        </View>
-        <View style={[styles.eventCountBadge, { backgroundColor: isDark ? 'rgba(99,102,241,0.8)' : 'rgba(99,102,241,0.9)' }]}>
-          <ThemedText style={styles.eventCountText}>
-            {events.length} events
-          </ThemedText>
-        </View>
+        </BlurView>
       </View>
 
       <View style={styles.mapLegendBar}>
-        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
-          <View style={[styles.legendDot, { backgroundColor: EventColors.entertainment }]} />
-          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Shows</ThemedText>
-        </View>
-        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
-          <View style={[styles.legendDot, { backgroundColor: EventColors.sports }]} />
-          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Sports</ThemedText>
-        </View>
-        <View style={[styles.legendItem, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}>
-          <View style={[styles.legendDot, { backgroundColor: EventColors.food }]} />
-          <ThemedText style={[styles.legendText, { color: isDark ? '#fff' : '#333' }]}>Food</ThemedText>
-        </View>
+        {[
+          { color: EventColors.entertainment, label: 'Shows' },
+          { color: EventColors.sports, label: 'Sports' },
+          { color: EventColors.food, label: 'Food' },
+          { color: EventColors.bars, label: 'Bars' },
+        ].map((item, i) => (
+          <BlurView key={i} intensity={70} tint={isDark ? "dark" : "light"} style={styles.legendChip}>
+            <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+            <ThemedText style={[styles.legendLabel, { color: isDark ? '#e5e7eb' : '#374151' }]}>
+              {item.label}
+            </ThemedText>
+          </BlurView>
+        ))}
       </View>
     </View>
   );
@@ -962,9 +1038,10 @@ const styles = StyleSheet.create({
   },
   snapMap: {
     width: "100%",
-    height: 240,
+    height: 280,
     position: "relative",
     overflow: "hidden",
+    borderRadius: BorderRadius.lg,
   },
   mapRoad: {
     position: "absolute",
@@ -1126,6 +1203,55 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 10,
+    fontWeight: "500",
+  },
+  glassCard: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  locationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  locationText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  eventBadge: {
+    paddingHorizontal: Spacing.md,
+  },
+  eventBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  legendChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    gap: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  legendLabel: {
+    fontSize: 11,
     fontWeight: "500",
   },
 });
