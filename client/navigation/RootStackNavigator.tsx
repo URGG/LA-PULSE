@@ -11,7 +11,7 @@ export type Event = {
   id: string;
   title: string;
   description: string;
-  category: "entertainment" | "food" | "sports" | "arts";
+  category: "entertainment" | "food" | "sports" | "arts" | "bars";
   date: string;
   time: string;
   address: string;

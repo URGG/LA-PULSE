@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -60,7 +60,7 @@ const LA_REGION: Region = {
   longitudeDelta: 0.3,
 };
 
-type CategoryFilter = "all" | "entertainment" | "food" | "sports" | "arts";
+type CategoryFilter = "all" | "entertainment" | "food" | "sports" | "arts" | "bars";
 
 const CATEGORIES: { key: CategoryFilter; label: string; icon: string }[] = [
   { key: "all", label: "All", icon: "grid" },
@@ -68,6 +68,7 @@ const CATEGORIES: { key: CategoryFilter; label: string; icon: string }[] = [
   { key: "food", label: "Food", icon: "coffee" },
   { key: "sports", label: "Sports", icon: "activity" },
   { key: "arts", label: "Arts", icon: "image" },
+  { key: "bars", label: "Bars", icon: "moon" },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -214,7 +215,7 @@ function EventCard({
       ) : (
         <View style={[styles.eventImagePlaceholder, { backgroundColor: EventColors[event.category] || theme.primary }]}>
           <Feather 
-            name={event.category === "sports" ? "activity" : event.category === "food" ? "coffee" : event.category === "arts" ? "image" : "film"} 
+            name={event.category === "sports" ? "activity" : event.category === "food" ? "coffee" : event.category === "arts" ? "image" : event.category === "bars" ? "moon" : "film"} 
             size={24} 
             color="rgba(255,255,255,0.8)" 
           />
@@ -323,6 +324,16 @@ export default function MapScreen() {
   const [permission, requestPermission] = Location.useForegroundPermissions();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const hasRequestedPermission = useRef(false);
+
+  useEffect(() => {
+    if (!permission || hasRequestedPermission.current) return;
+    
+    if (!permission.granted && permission.canAskAgain) {
+      hasRequestedPermission.current = true;
+      requestPermission();
+    }
+  }, [permission]);
 
   useEffect(() => {
     if (permission?.granted) {
@@ -335,6 +346,17 @@ export default function MapScreen() {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           });
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(
+              {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                latitudeDelta: 0.15,
+                longitudeDelta: 0.15,
+              },
+              500
+            );
+          }
         })
         .catch((error) => {
           console.log("Error getting location:", error);
@@ -431,22 +453,14 @@ export default function MapScreen() {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.navigate("EventList")}
-          hitSlop={8}
-          style={styles.headerButton}
-        >
+        <HeaderButton onPress={() => navigation.navigate("EventList")}>
           <Feather name="list" size={22} color={theme.text} />
-        </Pressable>
+        </HeaderButton>
       ),
       headerRight: () => (
-        <Pressable
-          onPress={() => navigation.navigate("Settings")}
-          hitSlop={8}
-          style={styles.headerButton}
-        >
+        <HeaderButton onPress={() => navigation.navigate("Settings")}>
           <Feather name="settings" size={22} color={theme.text} />
-        </Pressable>
+        </HeaderButton>
       ),
     });
   }, [navigation, theme]);
@@ -589,9 +603,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  headerButton: {
-    padding: Spacing.xs,
   },
   searchAndFilterContainer: {
     position: "absolute",

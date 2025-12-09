@@ -54,6 +54,7 @@ export const EventColors = {
   food: "#F7B32B",
   sports: "#00A676",
   arts: "#9B51E0",
+  bars: "#E91E63",
 };
 
 export const Spacing = {

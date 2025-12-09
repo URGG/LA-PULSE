@@ -5,7 +5,7 @@ type Event = {
   id: string;
   title: string;
   description: string;
-  category: "entertainment" | "food" | "sports" | "arts";
+  category: "entertainment" | "food" | "sports" | "arts" | "bars";
   date: string;
   time: string;
   address: string;
@@ -111,11 +111,32 @@ function mapTicketmasterCategory(classifications: any[]): Event["category"] {
   
   const segment = classifications[0]?.segment?.name?.toLowerCase() || "";
   const genre = classifications[0]?.genre?.name?.toLowerCase() || "";
+  const subGenre = classifications[0]?.subGenre?.name?.toLowerCase() || "";
   
   if (segment === "sports" || genre.includes("sport")) return "sports";
   if (segment === "arts & theatre" || genre.includes("art") || genre.includes("theatre")) return "arts";
   if (genre.includes("food") || genre.includes("culinary")) return "food";
+  if (genre.includes("club") || genre.includes("nightlife") || genre.includes("bar") || 
+      subGenre.includes("club") || subGenre.includes("nightlife") || subGenre.includes("bar")) return "bars";
   return "entertainment";
+}
+
+function selectBestImage(images: any[]): string | undefined {
+  if (!images || images.length === 0) return undefined;
+  
+  const sorted = [...images].sort((a, b) => {
+    const aSize = (a.width || 0) * (a.height || 0);
+    const bSize = (b.width || 0) * (b.height || 0);
+    return bSize - aSize;
+  });
+  
+  const preferred = sorted.find(img => img.width >= 640 && img.ratio === "16_9");
+  if (preferred) return preferred.url;
+  
+  const large = sorted.find(img => img.width >= 400);
+  if (large) return large.url;
+  
+  return sorted[0]?.url;
 }
 
 function formatDate(dateStr: string): string {
@@ -179,7 +200,7 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
         address: venue ? `${venue.name}, ${venue.city?.name || ""}, ${venue.state?.stateCode || ""}` : "Location TBA",
         latitude: location.latitude ? parseFloat(location.latitude) : 34.0522,
         longitude: location.longitude ? parseFloat(location.longitude) : -118.2437,
-        imageUrl: event.images?.[0]?.url,
+        imageUrl: selectBestImage(event.images),
         ticketUrl: event.url,
       };
     });

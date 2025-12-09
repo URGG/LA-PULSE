@@ -39,6 +39,8 @@ const getCategoryIcon = (category: Event["category"]): string => {
       return "activity";
     case "arts":
       return "image";
+    case "bars":
+      return "moon";
     default:
       return "map-pin";
   }
