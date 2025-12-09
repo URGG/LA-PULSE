@@ -215,7 +215,7 @@ function EventCard({
         <View style={[styles.eventImagePlaceholder, { backgroundColor: EventColors[event.category] || theme.primary }]}>
           <Feather 
             name={event.category === "sports" ? "activity" : event.category === "food" ? "coffee" : event.category === "arts" ? "image" : "film"} 
-            size={32} 
+            size={24} 
             color="rgba(255,255,255,0.8)" 
           />
         </View>
@@ -680,11 +680,11 @@ const styles = StyleSheet.create({
   },
   eventImage: {
     width: "100%",
-    height: 160,
+    height: 100,
   },
   eventImagePlaceholder: {
     width: "100%",
-    height: 160,
+    height: 80,
     alignItems: "center",
     justifyContent: "center",
   },

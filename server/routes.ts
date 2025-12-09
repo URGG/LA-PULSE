@@ -148,6 +148,8 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
     url.searchParams.set("unit", "miles");
     url.searchParams.set("size", "50");
     url.searchParams.set("sort", "date,asc");
+    const now = new Date();
+    url.searchParams.set("startDateTime", now.toISOString().split('.')[0] + "Z");
 
     const response = await fetch(url.toString());
     
