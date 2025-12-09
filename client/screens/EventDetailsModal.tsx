@@ -15,10 +15,12 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
+import { useFavorites } from "@/hooks/useFavorites";
 import { Spacing, BorderRadius, EventColors, Typography } from "@/constants/theme";
 import { RootStackParamList, Event } from "@/navigation/RootStackNavigator";
 
@@ -86,9 +88,18 @@ export default function EventDetailsModal() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<RootStackParamList, "EventDetails">>();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const { event } = route.params;
   const categoryColor = EventColors[event.category];
+  const favorited = isFavorite(event.id);
+
+  const handleToggleFavorite = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    toggleFavorite(event.id);
+  };
 
   const handleGetDirections = () => {
     const url = Platform.select({
@@ -123,13 +134,26 @@ export default function EventDetailsModal() {
     <ThemedView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.dragHandle} />
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={8}
-          style={styles.closeButton}
-        >
-          <Feather name="x" size={24} color={theme.text} />
-        </Pressable>
+        <View style={styles.headerButtons}>
+          <Pressable
+            onPress={handleToggleFavorite}
+            hitSlop={8}
+            style={styles.headerButton}
+          >
+            <Feather
+              name="heart"
+              size={24}
+              color={favorited ? "#FF3B5C" : theme.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            hitSlop={8}
+            style={styles.headerButton}
+          >
+            <Feather name="x" size={24} color={theme.text} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -230,10 +254,14 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     marginBottom: Spacing.sm,
   },
-  closeButton: {
+  headerButtons: {
     position: "absolute",
     right: Spacing.lg,
     top: Spacing.md,
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  headerButton: {
     padding: Spacing.xs,
   },
   scrollView: {

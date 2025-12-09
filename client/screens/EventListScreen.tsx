@@ -5,6 +5,8 @@ import {
   FlatList,
   TextInput,
   Pressable,
+  ScrollView,
+  Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,11 +17,13 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, EventColors, Typography } from "@/constants/theme";
+import { useFavorites } from "@/hooks/useFavorites";
+import { Spacing, BorderRadius, EventColors, Typography, Shadows } from "@/constants/theme";
 import { RootStackParamList, Event } from "@/navigation/RootStackNavigator";
 
 const MOCK_EVENTS: Event[] = [
@@ -130,7 +134,17 @@ const getCategoryIcon = (category: Event["category"]): string => {
   }
 };
 
-function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
+function EventCard({
+  event,
+  onPress,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  event: Event;
+  onPress: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+}) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
 
@@ -144,6 +158,13 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
 
   const handlePressOut = () => {
     scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+  };
+
+  const handleFavoritePress = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onToggleFavorite();
   };
 
   const categoryColor = EventColors[event.category];
@@ -204,31 +225,61 @@ function EventCard({ event, onPress }: { event: Event; onPress: () => void }) {
           </ThemedText>
         </View>
       </View>
-      <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      <Pressable
+        onPress={handleFavoritePress}
+        hitSlop={8}
+        style={styles.favoriteButton}
+      >
+        <Feather
+          name="heart"
+          size={20}
+          color={isFavorite ? "#FF3B5C" : theme.textSecondary}
+        />
+      </Pressable>
     </AnimatedPressable>
   );
 }
+
+type FilterTab = "all" | "favorites";
 
 export default function EventListScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
   const filteredEvents = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_EVENTS;
-    const query = searchQuery.toLowerCase();
-    return MOCK_EVENTS.filter(
-      (event) =>
-        event.title.toLowerCase().includes(query) ||
-        event.category.toLowerCase().includes(query) ||
-        event.address.toLowerCase().includes(query)
-    );
-  }, [searchQuery]);
+    let events = MOCK_EVENTS;
+    
+    if (activeTab === "favorites") {
+      events = events.filter((event) => favorites.includes(event.id));
+    }
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      events = events.filter(
+        (event) =>
+          event.title.toLowerCase().includes(query) ||
+          event.category.toLowerCase().includes(query) ||
+          event.address.toLowerCase().includes(query)
+      );
+    }
+    
+    return events;
+  }, [searchQuery, activeTab, favorites]);
 
   const handleEventPress = (event: Event) => {
     navigation.navigate("EventDetails", { event });
+  };
+
+  const handleTabChange = (tab: FilterTab) => {
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+    setActiveTab(tab);
   };
 
   return (
@@ -259,6 +310,51 @@ export default function EventListScreen() {
         ) : null}
       </View>
 
+      <View style={styles.tabsContainer}>
+        <Pressable
+          onPress={() => handleTabChange("all")}
+          style={[
+            styles.tabButton,
+            activeTab === "all" && { backgroundColor: theme.primary },
+          ]}
+        >
+          <Feather
+            name="grid"
+            size={16}
+            color={activeTab === "all" ? "#FFFFFF" : theme.textSecondary}
+          />
+          <ThemedText
+            style={[
+              styles.tabText,
+              { color: activeTab === "all" ? "#FFFFFF" : theme.textSecondary },
+            ]}
+          >
+            All Events
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => handleTabChange("favorites")}
+          style={[
+            styles.tabButton,
+            activeTab === "favorites" && { backgroundColor: "#FF3B5C" },
+          ]}
+        >
+          <Feather
+            name="heart"
+            size={16}
+            color={activeTab === "favorites" ? "#FFFFFF" : theme.textSecondary}
+          />
+          <ThemedText
+            style={[
+              styles.tabText,
+              { color: activeTab === "favorites" ? "#FFFFFF" : theme.textSecondary },
+            ]}
+          >
+            Favorites ({favorites.length})
+          </ThemedText>
+        </Pressable>
+      </View>
+
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => item.id}
@@ -268,16 +364,34 @@ export default function EventListScreen() {
         ]}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         renderItem={({ item }) => (
-          <EventCard event={item} onPress={() => handleEventPress(item)} />
+          <EventCard
+            event={item}
+            onPress={() => handleEventPress(item)}
+            isFavorite={isFavorite(item.id)}
+            onToggleFavorite={() => toggleFavorite(item.id)}
+          />
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Feather name="calendar" size={48} color={theme.textSecondary} />
+            <Feather
+              name={activeTab === "favorites" ? "heart" : "calendar"}
+              size={48}
+              color={theme.textSecondary}
+            />
             <ThemedText
               style={[styles.emptyText, { color: theme.textSecondary }]}
             >
-              No events found
+              {activeTab === "favorites"
+                ? "No favorites yet"
+                : "No events found"}
             </ThemedText>
+            {activeTab === "favorites" ? (
+              <ThemedText
+                style={[styles.emptySubtext, { color: theme.textSecondary }]}
+              >
+                Tap the heart icon to save events
+              </ThemedText>
+            ) : null}
           </View>
         }
         showsVerticalScrollIndicator={true}
@@ -347,6 +461,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
+  tabsContainer: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  favoriteButton: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
+  },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -355,5 +491,9 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: Spacing.md,
     fontSize: 16,
+  },
+  emptySubtext: {
+    marginTop: Spacing.xs,
+    fontSize: 14,
   },
 });
