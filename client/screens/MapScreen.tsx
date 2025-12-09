@@ -608,6 +608,198 @@ function getDistanceFromLatLonInMiles(
   return R * c;
 }
 
+function EventCarousel({
+  events,
+  selectedEvent,
+  onEventPress,
+}: {
+  events: Event[];
+  selectedEvent: Event | null;
+  onEventPress: (event: Event) => void;
+}) {
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const flatListRef = useRef<FlatList>(null);
+
+  React.useEffect(() => {
+    if (selectedEvent && flatListRef.current) {
+      const index = events.findIndex(e => e.id === selectedEvent.id);
+      if (index >= 0) {
+        flatListRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+      }
+    }
+  }, [selectedEvent, events]);
+
+  const renderItem = useCallback(({ item }: { item: Event }) => {
+    const color = EventColors[item.category] || EventColors.entertainment;
+    const isSelected = selectedEvent?.id === item.id;
+    
+    return (
+      <Pressable
+        onPress={() => onEventPress(item)}
+        style={[
+          styles.carouselItem,
+          isSelected && styles.carouselItemSelected,
+          { borderColor: isSelected ? color : 'transparent' },
+        ]}
+      >
+        <BlurView intensity={80} tint={isDark ? "dark" : "light"} style={styles.carouselItemBlur}>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.carouselItemImage} contentFit="cover" />
+          ) : (
+            <View style={[styles.carouselItemImagePlaceholder, { backgroundColor: color }]}>
+              <Feather name="calendar" size={16} color="#FFFFFF" />
+            </View>
+          )}
+          <View style={styles.carouselItemInfo}>
+            <ThemedText style={styles.carouselItemTitle} numberOfLines={1}>{item.title}</ThemedText>
+            <ThemedText style={[styles.carouselItemDate, { color: theme.textSecondary }]}>{item.date}</ThemedText>
+          </View>
+        </BlurView>
+      </Pressable>
+    );
+  }, [isDark, theme, selectedEvent, onEventPress]);
+
+  if (events.length === 0) return null;
+
+  return (
+    <View style={[styles.carouselContainer, { bottom: insets.bottom + Spacing.md }]}>
+      <FlatList
+        ref={flatListRef}
+        data={events.slice(0, 20)}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carouselContent}
+        onScrollToIndexFailed={() => {}}
+      />
+    </View>
+  );
+}
+
+function SelectedEventCard({
+  event,
+  onPress,
+  onClose,
+}: {
+  event: Event;
+  onPress: () => void;
+  onClose: () => void;
+}) {
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const color = EventColors[event.category] || EventColors.entertainment;
+  const animatedProgress = useSharedValue(0);
+  
+  React.useEffect(() => {
+    animatedProgress.value = withSpring(1, { damping: 15, stiffness: 150 });
+  }, []);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: animatedProgress.value,
+    transform: [{ translateY: (1 - animatedProgress.value) * 20 }],
+  }));
+
+  return (
+    <Animated.View style={[styles.selectedCardContainer, { bottom: insets.bottom + 120 }, animatedStyle]}>
+      <BlurView intensity={90} tint={isDark ? "dark" : "light"} style={styles.selectedCard}>
+        <Pressable onPress={onClose} style={styles.selectedCardClose}>
+          <Feather name="x" size={16} color={theme.textSecondary} />
+        </Pressable>
+        <Pressable onPress={onPress} style={styles.selectedCardContent}>
+          {event.imageUrl ? (
+            <Image
+              source={{ uri: event.imageUrl }}
+              style={styles.selectedCardImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.selectedCardImagePlaceholder, { backgroundColor: color }]}>
+              <Feather name="calendar" size={24} color="#FFFFFF" />
+            </View>
+          )}
+          <View style={styles.selectedCardInfo}>
+            <View style={[styles.selectedCardCategoryBadge, { backgroundColor: color }]}>
+              <ThemedText style={styles.selectedCardCategoryText}>
+                {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+              </ThemedText>
+            </View>
+            <ThemedText style={styles.selectedCardTitle} numberOfLines={2}>
+              {event.title}
+            </ThemedText>
+            <View style={styles.selectedCardMeta}>
+              <Feather name="calendar" size={12} color={theme.textSecondary} />
+              <ThemedText style={[styles.selectedCardMetaText, { color: theme.textSecondary }]}>
+                {event.date}
+              </ThemedText>
+              <Feather name="clock" size={12} color={theme.textSecondary} style={{ marginLeft: 8 }} />
+              <ThemedText style={[styles.selectedCardMetaText, { color: theme.textSecondary }]}>
+                {event.time}
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.selectedCardHint, { color: theme.primary }]}>
+              Tap to view details
+            </ThemedText>
+          </View>
+        </Pressable>
+      </BlurView>
+    </Animated.View>
+  );
+}
+
+function CustomMarker({
+  event,
+  isSelected,
+  onPress,
+}: {
+  event: Event;
+  isSelected: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const color = EventColors[event.category] || EventColors.entertainment;
+  const scale = useSharedValue(isSelected ? 1.2 : 1);
+  
+  React.useEffect(() => {
+    scale.value = withSpring(isSelected ? 1.25 : 1, { damping: 12, stiffness: 200 });
+  }, [isSelected]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const getCategoryIcon = (category: string): string => {
+    switch (category) {
+      case "sports": return "activity";
+      case "food": return "coffee";
+      case "arts": return "image";
+      case "bars": return "moon";
+      default: return "music";
+    }
+  };
+
+  return (
+    <Animated.View style={[styles.customMarkerContainer, animatedStyle]}>
+      <View style={[styles.customMarkerGlow, { backgroundColor: color }]} />
+      <View style={[styles.customMarkerRing, { borderColor: color }]}>
+        {event.imageUrl ? (
+          <Image
+            source={{ uri: event.imageUrl }}
+            style={styles.customMarkerImage}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.customMarkerIconBg, { backgroundColor: color }]}>
+            <Feather name={getCategoryIcon(event.category) as any} size={18} color="#FFFFFF" />
+          </View>
+        )}
+      </View>
+      <View style={[styles.customMarkerPointer, { backgroundColor: color }]} />
+    </Animated.View>
+  );
+}
+
 export default function MapScreen() {
   const { theme, isDark } = useTheme();
   const headerHeight = useHeaderHeight();
@@ -618,6 +810,7 @@ export default function MapScreen() {
 
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [permission, requestPermission] = Location.useForegroundPermissions();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -738,10 +931,29 @@ export default function MapScreen() {
 
   const handleMarkerPress = useCallback(
     (event: Event) => {
-      navigation.navigate("EventDetails", { event });
+      if (selectedEvent?.id === event.id) {
+        navigation.navigate("EventDetails", { event });
+      } else {
+        setSelectedEvent(event);
+        if (mapRef.current) {
+          mapRef.current.animateToRegion(
+            {
+              latitude: event.latitude,
+              longitude: event.longitude,
+              latitudeDelta: 0.08,
+              longitudeDelta: 0.08,
+            },
+            300
+          );
+        }
+      }
     },
-    [navigation]
+    [navigation, selectedEvent]
   );
+
+  const handleMapPress = useCallback(() => {
+    setSelectedEvent(null);
+  }, []);
 
   const getMarkerColor = (category: Event["category"]) => {
     return EventColors[category] || EventColors.entertainment;
@@ -808,6 +1020,7 @@ export default function MapScreen() {
           showsUserLocation
           showsMyLocationButton={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
+          onPress={handleMapPress}
         >
           {Marker && sortedEvents.map((event) => (
             <Marker
@@ -816,11 +1029,16 @@ export default function MapScreen() {
                 latitude: event.latitude,
                 longitude: event.longitude,
               }}
-              pinColor={getMarkerColor(event.category)}
               onPress={() => handleMarkerPress(event)}
-              title={event.title}
-              description={event.category}
-            />
+              tracksViewChanges={selectedEvent?.id === event.id}
+              anchor={{ x: 0.5, y: 0.9 }}
+            >
+              <CustomMarker
+                event={event}
+                isSelected={selectedEvent?.id === event.id}
+                onPress={() => handleMarkerPress(event)}
+              />
+            </Marker>
           ))}
         </MapView>
       ) : null}
@@ -890,6 +1108,20 @@ export default function MapScreen() {
           </Pressable>
         ) : null}
       </View>
+
+      {selectedEvent ? (
+        <SelectedEventCard
+          event={selectedEvent}
+          onPress={() => navigation.navigate("EventDetails", { event: selectedEvent })}
+          onClose={handleMapPress}
+        />
+      ) : null}
+
+      <EventCarousel
+        events={sortedEvents}
+        selectedEvent={selectedEvent}
+        onEventPress={handleMarkerPress}
+      />
     </View>
   );
 }
@@ -1253,5 +1485,186 @@ const styles = StyleSheet.create({
   legendLabel: {
     fontSize: 11,
     fontWeight: "500",
+  },
+  customMarkerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customMarkerGlow: {
+    position: "absolute",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    opacity: 0.25,
+    top: -6,
+  },
+  customMarkerRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  customMarkerImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  customMarkerIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customMarkerPointer: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    transform: [{ rotate: "45deg" }],
+    marginTop: -6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  selectedCardContainer: {
+    position: "absolute",
+    left: Spacing.md,
+    right: Spacing.md,
+    zIndex: 100,
+  },
+  selectedCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  selectedCardClose: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  selectedCardContent: {
+    flexDirection: "row",
+    padding: Spacing.sm,
+  },
+  selectedCardImage: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+  },
+  selectedCardImagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedCardInfo: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    justifyContent: "center",
+  },
+  selectedCardCategoryBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    marginBottom: 4,
+  },
+  selectedCardCategoryText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+  },
+  selectedCardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  selectedCardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  selectedCardMetaText: {
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  selectedCardHint: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  carouselContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 50,
+  },
+  carouselContent: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  carouselItem: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  carouselItemSelected: {
+    borderWidth: 2,
+  },
+  carouselItemBlur: {
+    flexDirection: "row",
+    padding: Spacing.xs,
+    alignItems: "center",
+    minWidth: 160,
+  },
+  carouselItemImage: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+  },
+  carouselItemImagePlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  carouselItemInfo: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+    justifyContent: "center",
+  },
+  carouselItemTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    maxWidth: 100,
+  },
+  carouselItemDate: {
+    fontSize: 10,
+    marginTop: 2,
   },
 });
