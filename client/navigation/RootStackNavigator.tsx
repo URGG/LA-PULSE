@@ -17,6 +17,8 @@ export type Event = {
   address: string;
   latitude: number;
   longitude: number;
+  imageUrl?: string;
+  ticketUrl?: string;
 };
 
 export type RootStackParamList = {

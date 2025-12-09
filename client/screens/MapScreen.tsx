@@ -8,7 +8,9 @@ import {
   Linking,
   ActivityIndicator,
   TextInput,
+  FlatList,
 } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -115,7 +117,7 @@ function FilterChip({
     >
       <Feather
         name={icon as any}
-        size={16}
+        size={14}
         color={isActive ? "#FFFFFF" : theme.text}
         style={styles.chipIcon}
       />
@@ -170,6 +172,82 @@ function MapControlButton({
   );
 }
 
+function EventCard({
+  event,
+  onPress,
+}: {
+  event: Event;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.98, { damping: 15, stiffness: 150 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 150 });
+  };
+
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
+        styles.eventCard,
+        { backgroundColor: theme.cardBackground },
+        animatedStyle,
+      ]}
+    >
+      {event.imageUrl ? (
+        <Image
+          source={{ uri: event.imageUrl }}
+          style={styles.eventImage}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={[styles.eventImagePlaceholder, { backgroundColor: EventColors[event.category] || theme.primary }]}>
+          <Feather 
+            name={event.category === "sports" ? "activity" : event.category === "food" ? "coffee" : event.category === "arts" ? "image" : "film"} 
+            size={32} 
+            color="rgba(255,255,255,0.8)" 
+          />
+        </View>
+      )}
+      <View style={styles.eventCardContent}>
+        <View style={[styles.categoryBadge, { backgroundColor: EventColors[event.category] || theme.primary }]}>
+          <ThemedText style={styles.categoryBadgeText}>
+            {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.eventCardTitle} numberOfLines={2}>{event.title}</ThemedText>
+        <View style={styles.eventCardMeta}>
+          <Feather name="calendar" size={12} color={theme.textSecondary} />
+          <ThemedText style={[styles.eventCardMetaText, { color: theme.textSecondary }]}>
+            {event.date}
+          </ThemedText>
+          <Feather name="clock" size={12} color={theme.textSecondary} style={{ marginLeft: 8 }} />
+          <ThemedText style={[styles.eventCardMetaText, { color: theme.textSecondary }]}>
+            {event.time}
+          </ThemedText>
+        </View>
+        <View style={styles.eventCardMeta}>
+          <Feather name="map-pin" size={12} color={theme.textSecondary} />
+          <ThemedText style={[styles.eventCardMetaText, { color: theme.textSecondary }]} numberOfLines={1}>
+            {event.address.split(",")[0]}
+          </ThemedText>
+        </View>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 function WebMapFallback({
   events,
   onEventPress,
@@ -181,47 +259,34 @@ function WebMapFallback({
 }) {
   const { theme } = useTheme();
   const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
+
+  const renderEvent = useCallback(({ item }: { item: Event }) => (
+    <EventCard event={item} onPress={() => onEventPress(item)} />
+  ), [onEventPress]);
 
   return (
     <ThemedView style={styles.webFallback}>
-      <View style={[styles.webContent, { paddingTop: headerHeight + Spacing["3xl"] }]}>
-        <Feather name="map" size={64} color={theme.primary} />
-        <ThemedText style={styles.webTitle}>LA Events Map</ThemedText>
-        <ThemedText style={[styles.webSubtitle, { color: theme.textSecondary }]}>
-          Open in Expo Go on your phone to see the interactive map
-        </ThemedText>
-        <View style={styles.webEventList}>
-          <ThemedText style={styles.webEventsTitle}>Upcoming Events</ThemedText>
-          {isLoading ? (
-            <ActivityIndicator size="large" color={theme.primary} />
-          ) : (
-            events.slice(0, 4).map((event) => (
-              <Pressable
-                key={event.id}
-                onPress={() => onEventPress(event)}
-                style={[
-                  styles.webEventItem,
-                  { backgroundColor: theme.backgroundDefault, borderColor: theme.border },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.webEventDot,
-                    { backgroundColor: EventColors[event.category] || EventColors.entertainment },
-                  ]}
-                />
-                <View style={styles.webEventInfo}>
-                  <ThemedText style={styles.webEventTitle}>{event.title}</ThemedText>
-                  <ThemedText style={[styles.webEventDate, { color: theme.textSecondary }]}>
-                    {event.date} at {event.time}
-                  </ThemedText>
-                </View>
-                <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-              </Pressable>
-            ))
-          )}
+      {isLoading ? (
+        <View style={[styles.loadingContainer, { paddingTop: headerHeight + 100 }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Loading events...
+          </ThemedText>
         </View>
-      </View>
+      ) : (
+        <FlatList
+          data={events}
+          renderItem={renderEvent}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.eventListContent,
+            { paddingTop: headerHeight + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }
+          ]}
+          showsVerticalScrollIndicator={false}
+          numColumns={1}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -556,22 +621,22 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   filterScrollContent: {
-    paddingHorizontal: Spacing.lg,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
   },
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
   chipIcon: {
-    marginRight: Spacing.xs,
+    marginRight: 4,
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "500",
   },
   mapControls: {
@@ -596,54 +661,61 @@ const styles = StyleSheet.create({
   webFallback: {
     flex: 1,
   },
-  webContent: {
+  loadingContainer: {
     flex: 1,
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
+    justifyContent: "center",
   },
-  webTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginTop: Spacing.lg,
-  },
-  webSubtitle: {
+  loadingText: {
+    marginTop: Spacing.md,
     fontSize: 16,
-    textAlign: "center",
-    marginTop: Spacing.sm,
-    marginBottom: Spacing["2xl"],
   },
-  webEventList: {
-    width: "100%",
-    maxWidth: 400,
+  eventListContent: {
+    paddingHorizontal: Spacing.md,
   },
-  webEventsTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+  eventCard: {
+    borderRadius: BorderRadius.md,
     marginBottom: Spacing.md,
+    overflow: "hidden",
   },
-  webEventItem: {
+  eventImage: {
+    width: "100%",
+    height: 160,
+  },
+  eventImagePlaceholder: {
+    width: "100%",
+    height: 160,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eventCardContent: {
+    padding: Spacing.md,
+  },
+  categoryBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    marginBottom: Spacing.xs,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+  },
+  eventCardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: Spacing.xs,
+  },
+  eventCardMeta: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    marginBottom: Spacing.sm,
+    marginTop: 4,
   },
-  webEventDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: Spacing.md,
-  },
-  webEventInfo: {
-    flex: 1,
-  },
-  webEventTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  webEventDate: {
-    fontSize: 14,
-    marginTop: 2,
+  eventCardMetaText: {
+    fontSize: 12,
+    marginLeft: 4,
   },
 });
