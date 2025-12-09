@@ -249,6 +249,70 @@ function EventCard({
   );
 }
 
+function StaticMapView({ 
+  events, 
+  onEventPress 
+}: { 
+  events: Event[]; 
+  onEventPress: (event: Event) => void;
+}) {
+  const { theme } = useTheme();
+  
+  const mapWidth = 380;
+  const mapHeight = 200;
+  const centerLat = 34.0522;
+  const centerLng = -118.2437;
+  const latRange = 0.3;
+  const lngRange = 0.4;
+
+  const latToY = (lat: number) => {
+    return ((centerLat + latRange / 2 - lat) / latRange) * mapHeight;
+  };
+
+  const lngToX = (lng: number) => {
+    return ((lng - (centerLng - lngRange / 2)) / lngRange) * mapWidth;
+  };
+
+  return (
+    <View style={[styles.staticMapContainer, { backgroundColor: theme.cardBackground }]}>
+      <View style={[styles.staticMap, { backgroundColor: isDarkTheme(theme) ? '#1a1a2e' : '#e8f4f8' }]}>
+        <View style={[styles.mapGrid, { borderColor: isDarkTheme(theme) ? '#2d2d44' : '#cde4ec' }]} />
+        <ThemedText style={[styles.mapLabel, { color: theme.textSecondary }]}>Los Angeles</ThemedText>
+        {events.slice(0, 15).map((event) => {
+          const x = lngToX(event.longitude);
+          const y = latToY(event.latitude);
+          if (x < 0 || x > mapWidth || y < 0 || y > mapHeight) return null;
+          return (
+            <Pressable
+              key={event.id}
+              style={[
+                styles.mapMarker,
+                { 
+                  left: x - 8, 
+                  top: y - 8,
+                  backgroundColor: EventColors[event.category] || theme.primary 
+                }
+              ]}
+              onPress={() => onEventPress(event)}
+            >
+              <View style={styles.mapMarkerInner} />
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.mapLegend}>
+        <ThemedText style={[styles.mapLegendText, { color: theme.textSecondary }]}>
+          Tap a marker to view event details
+        </ThemedText>
+      </View>
+    </View>
+  );
+}
+
+function isDarkTheme(theme: any): boolean {
+  return theme.background === '#000000' || theme.background === '#121212' || theme.text === '#FFFFFF';
+}
+
 function WebMapFallback({
   events,
   onEventPress,
@@ -266,6 +330,10 @@ function WebMapFallback({
     <EventCard event={item} onPress={() => onEventPress(item)} />
   ), [onEventPress]);
 
+  const ListHeader = useCallback(() => (
+    <StaticMapView events={events} onEventPress={onEventPress} />
+  ), [events, onEventPress]);
+
   return (
     <ThemedView style={styles.webFallback}>
       {isLoading ? (
@@ -280,6 +348,7 @@ function WebMapFallback({
           data={events}
           renderItem={renderEvent}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={[
             styles.eventListContent,
             { paddingTop: headerHeight + Spacing["3xl"], paddingBottom: insets.bottom + Spacing.xl }
@@ -728,5 +797,54 @@ const styles = StyleSheet.create({
   eventCardMetaText: {
     fontSize: 12,
     marginLeft: 4,
+  },
+  staticMapContainer: {
+    marginBottom: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  staticMap: {
+    width: "100%",
+    height: 200,
+    position: "relative",
+  },
+  mapGrid: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 1,
+  },
+  mapLabel: {
+    position: "absolute",
+    top: Spacing.sm,
+    left: Spacing.sm,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  mapMarker: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  mapMarkerInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FFFFFF",
+  },
+  mapLegend: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+  },
+  mapLegendText: {
+    fontSize: 12,
   },
 });
