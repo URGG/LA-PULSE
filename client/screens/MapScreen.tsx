@@ -1,10 +1,13 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   Pressable,
   Platform,
+  Linking,
+  ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -16,6 +19,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import * as Location from "expo-location";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -300,6 +304,25 @@ function WebMapFallback({
   );
 }
 
+function getDistanceFromLatLonInMiles(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 3959;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export default function MapScreen() {
   const { theme, isDark } = useTheme();
   const headerHeight = useHeaderHeight();
@@ -308,11 +331,57 @@ export default function MapScreen() {
   const mapRef = useRef<any>(null);
 
   const [activeFilter, setActiveFilter] = useState<CategoryFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [permission, requestPermission] = Location.useForegroundPermissions();
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
 
-  const filteredEvents =
-    activeFilter === "all"
-      ? MOCK_EVENTS
-      : MOCK_EVENTS.filter((event) => event.category === activeFilter);
+  useEffect(() => {
+    if (permission?.granted) {
+      setLocationLoading(true);
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      })
+        .then((location) => {
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+        })
+        .catch((error) => {
+          console.log("Error getting location:", error);
+        })
+        .finally(() => {
+          setLocationLoading(false);
+        });
+    }
+  }, [permission?.granted]);
+
+  const filteredEvents = MOCK_EVENTS.filter((event) => {
+    const matchesCategory = activeFilter === "all" || event.category === activeFilter;
+    const matchesSearch =
+      searchQuery === "" ||
+      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const eventsWithDistance = filteredEvents.map((event) => ({
+    ...event,
+    distance: userLocation
+      ? getDistanceFromLatLonInMiles(
+          userLocation.latitude,
+          userLocation.longitude,
+          event.latitude,
+          event.longitude
+        )
+      : null,
+  }));
+
+  const sortedEvents = userLocation
+    ? [...eventsWithDistance].sort((a, b) => (a.distance || 0) - (b.distance || 0))
+    : eventsWithDistance;
 
   const handleZoomIn = useCallback(() => {
     mapRef.current?.getCamera().then((camera: any) => {
@@ -331,8 +400,34 @@ export default function MapScreen() {
   }, []);
 
   const handleRecenter = useCallback(() => {
-    mapRef.current?.animateToRegion(LA_REGION, 500);
-  }, []);
+    if (userLocation) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.15,
+          longitudeDelta: 0.15,
+        },
+        500
+      );
+    } else {
+      mapRef.current?.animateToRegion(LA_REGION, 500);
+    }
+  }, [userLocation]);
+
+  const handleRequestLocation = useCallback(async () => {
+    if (permission?.status === "denied" && !permission.canAskAgain) {
+      if (Platform.OS !== "web") {
+        try {
+          await Linking.openSettings();
+        } catch (error) {
+          console.log("Could not open settings");
+        }
+      }
+    } else {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   const handleMarkerPress = useCallback(
     (event: Event) => {
@@ -371,7 +466,7 @@ export default function MapScreen() {
   if (Platform.OS === "web") {
     return (
       <View style={styles.container}>
-        <WebMapFallback events={filteredEvents} onEventPress={handleMarkerPress} />
+        <WebMapFallback events={sortedEvents} onEventPress={handleMarkerPress} />
         <View
           style={[
             styles.filterContainer,
@@ -415,7 +510,7 @@ export default function MapScreen() {
           showsMyLocationButton={false}
           userInterfaceStyle={isDark ? "dark" : "light"}
         >
-          {Marker && filteredEvents.map((event) => (
+          {Marker && sortedEvents.map((event) => (
             <Marker
               key={event.id}
               coordinate={{
@@ -431,12 +526,23 @@ export default function MapScreen() {
         </MapView>
       ) : null}
 
-      <View
-        style={[
-          styles.filterContainer,
-          { top: headerHeight + Spacing.md },
-        ]}
-      >
+      <View style={[styles.searchAndFilterContainer, { top: headerHeight + Spacing.md }]}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.cardBackground }, Shadows.small]}>
+          <Feather name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Search events or venues..."
+            placeholderTextColor={theme.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+              <Feather name="x" size={18} color={theme.textSecondary} />
+            </Pressable>
+          )}
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -469,6 +575,21 @@ export default function MapScreen() {
         <MapControlButton icon="plus" onPress={handleZoomIn} />
         <MapControlButton icon="minus" onPress={handleZoomOut} />
         <MapControlButton icon="navigation" onPress={handleRecenter} />
+        {!permission?.granted && (
+          <Pressable
+            onPress={handleRequestLocation}
+            style={[
+              styles.locationBanner,
+              { backgroundColor: theme.primary },
+            ]}
+          >
+            {locationLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Feather name="map-pin" size={20} color="#FFFFFF" />
+            )}
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -483,6 +604,27 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: Spacing.xs,
+  },
+  searchAndFilterContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 1,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+    fontSize: 16,
+    paddingVertical: Spacing.xs,
   },
   filterContainer: {
     position: "absolute",
@@ -515,6 +657,13 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   mapControlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  locationBanner: {
     width: 44,
     height: 44,
     borderRadius: BorderRadius.sm,
