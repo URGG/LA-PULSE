@@ -256,54 +256,120 @@ function StaticMapView({
   events: Event[]; 
   onEventPress: (event: Event) => void;
 }) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   
-  const mapWidth = 380;
-  const mapHeight = 200;
+  const mapHeight = 220;
   const centerLat = 34.0522;
   const centerLng = -118.2437;
-  const latRange = 0.3;
-  const lngRange = 0.4;
+  const latRange = 0.35;
+  const lngRange = 0.45;
 
   const latToY = (lat: number) => {
     return ((centerLat + latRange / 2 - lat) / latRange) * mapHeight;
   };
 
-  const lngToX = (lng: number) => {
-    return ((lng - (centerLng - lngRange / 2)) / lngRange) * mapWidth;
+  const lngToX = (lng: number, containerWidth: number) => {
+    return ((lng - (centerLng - lngRange / 2)) / lngRange) * containerWidth;
   };
 
+  const [containerWidth, setContainerWidth] = React.useState(380);
+
+  const roads = [
+    { x: 0.1, y: 0.30, horizontal: true },
+    { x: 0.20, y: 0.1, horizontal: false },
+    { x: 0.50, y: 0.15, horizontal: false },
+    { x: 0.80, y: 0.20, horizontal: false },
+    { x: 0.05, y: 0.60, horizontal: true },
+    { x: 0.30, y: 0.45, horizontal: true },
+    { x: 0.15, y: 0.75, horizontal: true },
+    { x: 0.35, y: 0.05, horizontal: false },
+    { x: 0.65, y: 0.10, horizontal: false },
+  ];
+
+  const neighborhoods = [
+    { name: 'Hollywood', x: 0.25, y: 0.25 },
+    { name: 'Downtown', x: 0.55, y: 0.55 },
+    { name: 'Santa Monica', x: 0.15, y: 0.70 },
+    { name: 'Pasadena', x: 0.75, y: 0.20 },
+  ];
+
   return (
-    <View style={[styles.staticMapContainer, { backgroundColor: theme.cardBackground }]}>
-      <View style={[styles.staticMap, { backgroundColor: isDarkTheme(theme) ? '#1a1a2e' : '#e8f4f8' }]}>
-        <View style={[styles.mapGrid, { borderColor: isDarkTheme(theme) ? '#2d2d44' : '#cde4ec' }]} />
-        <ThemedText style={[styles.mapLabel, { color: theme.textSecondary }]}>Los Angeles</ThemedText>
-        {events.slice(0, 15).map((event) => {
-          const x = lngToX(event.longitude);
+    <View 
+      style={styles.snapMapContainer}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    >
+      <View style={[styles.snapMap, { backgroundColor: isDark ? '#1E3A5F' : '#A8D5BA' }]}>
+        {roads.map((road, i) => (
+          <View 
+            key={i}
+            style={[
+              styles.mapRoad,
+              {
+                left: road.x * containerWidth,
+                top: road.y * mapHeight,
+                width: road.horizontal ? containerWidth * 0.8 : 3,
+                height: road.horizontal ? 3 : mapHeight * 0.7,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)',
+              }
+            ]}
+          />
+        ))}
+        
+        {neighborhoods.map((hood, i) => (
+          <View key={i} style={[styles.neighborhoodLabel, { left: hood.x * containerWidth, top: hood.y * mapHeight }]}>
+            <ThemedText style={[styles.neighborhoodText, { color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)' }]}>
+              {hood.name}
+            </ThemedText>
+          </View>
+        ))}
+
+        {events.slice(0, 20).map((event, index) => {
+          const x = lngToX(event.longitude, containerWidth);
           const y = latToY(event.latitude);
-          if (x < 0 || x > mapWidth || y < 0 || y > mapHeight) return null;
+          if (x < 10 || x > containerWidth - 10 || y < 10 || y > mapHeight - 10) return null;
+          const color = EventColors[event.category] || theme.primary;
           return (
             <Pressable
               key={event.id}
               style={[
-                styles.mapMarker,
+                styles.snapMarker,
                 { 
-                  left: x - 8, 
-                  top: y - 8,
-                  backgroundColor: EventColors[event.category] || theme.primary 
+                  left: x - 14, 
+                  top: y - 14,
+                  zIndex: 100 + index,
                 }
               ]}
               onPress={() => onEventPress(event)}
             >
-              <View style={styles.mapMarkerInner} />
+              <View style={[styles.snapMarkerOuter, { backgroundColor: color }]}>
+                <View style={styles.snapMarkerInner}>
+                  <Feather 
+                    name={
+                      event.category === "sports" ? "activity" : 
+                      event.category === "food" ? "coffee" : 
+                      event.category === "arts" ? "image" : 
+                      event.category === "bars" ? "moon" : "music"
+                    } 
+                    size={12} 
+                    color={color} 
+                  />
+                </View>
+              </View>
+              <View style={[styles.snapMarkerTail, { borderTopColor: color }]} />
             </Pressable>
           );
         })}
       </View>
-      <View style={styles.mapLegend}>
-        <ThemedText style={[styles.mapLegendText, { color: theme.textSecondary }]}>
-          Tap a marker to view event details
-        </ThemedText>
+      
+      <View style={[styles.snapMapOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.1)' }]}>
+        <View style={styles.snapMapHeader}>
+          <View style={[styles.snapLocationBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }]}>
+            <Feather name="map-pin" size={12} color={isDark ? '#fff' : '#333'} />
+            <ThemedText style={[styles.snapLocationText, { color: isDark ? '#fff' : '#333' }]}>
+              Los Angeles, CA
+            </ThemedText>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -798,53 +864,91 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
-  staticMapContainer: {
+  snapMapContainer: {
     marginBottom: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  snapMap: {
+    width: "100%",
+    height: 220,
+    position: "relative",
     overflow: "hidden",
   },
-  staticMap: {
-    width: "100%",
-    height: 200,
-    position: "relative",
+  mapRoad: {
+    position: "absolute",
+    borderRadius: 2,
   },
-  mapGrid: {
+  neighborhoodLabel: {
+    position: "absolute",
+  },
+  neighborhoodText: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  snapMarker: {
+    position: "absolute",
+    alignItems: "center",
+  },
+  snapMarkerOuter: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  snapMarkerInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  snapMarkerTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    marginTop: -2,
+  },
+  snapMapOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    borderWidth: 1,
-  },
-  mapLabel: {
-    position: "absolute",
-    top: Spacing.sm,
-    left: Spacing.sm,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  mapMarker: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  mapMarkerInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#FFFFFF",
-  },
-  mapLegend: {
-    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  snapMapHeader: {
+    flexDirection: "row",
     alignItems: "center",
   },
-  mapLegendText: {
+  snapLocationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  snapLocationText: {
     fontSize: 12,
+    fontWeight: "600",
   },
 });
