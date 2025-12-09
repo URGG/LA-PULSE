@@ -30,11 +30,18 @@ import { RootStackParamList, Event } from "@/navigation/RootStackNavigator";
 
 let MapView: any = null;
 let Marker: any = null;
+let mapsAvailable = false;
 
 if (Platform.OS !== "web") {
-  const Maps = require("react-native-maps");
-  MapView = Maps.default;
-  Marker = Maps.Marker;
+  try {
+    const Maps = require("react-native-maps");
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+    mapsAvailable = true;
+  } catch (e) {
+    console.log("react-native-maps not available, using fallback");
+    mapsAvailable = false;
+  }
 }
 
 type Region = {
@@ -379,7 +386,7 @@ export default function MapScreen() {
     });
   }, [navigation, theme]);
 
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || !mapsAvailable) {
     return (
       <View style={styles.container}>
         <WebMapFallback events={sortedEvents} onEventPress={handleMarkerPress} isLoading={isLoading} />
