@@ -36,6 +36,8 @@ const getCategoryIcon = (category: Event["category"]): string => {
       return "activity";
     case "arts":
       return "image";
+    case "bars":
+      return "moon";
     default:
       return "map-pin";
   }
@@ -130,6 +132,25 @@ export default function EventDetailsModal() {
     }
   };
 
+  const handleBuyTickets = () => {
+    if (event.ticketUrl) {
+      Linking.openURL(event.ticketUrl).catch((err) =>
+        console.error("Error opening ticket URL:", err)
+      );
+    }
+  };
+
+  const getTicketButtonLabel = (): string => {
+    switch (event.category) {
+      case "food":
+        return "Reserve a Spot";
+      case "bars":
+        return "Make Reservation";
+      default:
+        return "Get Tickets";
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -218,6 +239,18 @@ export default function EventDetailsModal() {
         <ThemedText style={[styles.description, { color: theme.textSecondary }]}>
           {event.description}
         </ThemedText>
+
+        {event.ticketUrl ? (
+          <Pressable
+            onPress={handleBuyTickets}
+            style={[styles.ticketButton, { backgroundColor: categoryColor }]}
+          >
+            <Feather name="external-link" size={20} color="#FFFFFF" />
+            <ThemedText style={styles.ticketButtonText}>
+              {getTicketButtonLabel()}
+            </ThemedText>
+          </Pressable>
+        ) : null}
 
         <View style={styles.actionsContainer}>
           <ActionButton
@@ -327,10 +360,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  ticketButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 56,
+    borderRadius: BorderRadius.sm,
+    gap: Spacing.sm,
+    marginTop: Spacing["3xl"],
+  },
+  ticketButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
   actionsContainer: {
     flexDirection: "row",
     gap: Spacing.md,
-    marginTop: Spacing["3xl"],
+    marginTop: Spacing.lg,
   },
   actionButton: {
     flex: 1,
