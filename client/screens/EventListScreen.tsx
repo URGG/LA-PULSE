@@ -5,8 +5,8 @@ import {
   FlatList,
   TextInput,
   Pressable,
-  ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,99 +23,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
 import { useFavorites } from "@/hooks/useFavorites";
-import { Spacing, BorderRadius, EventColors, Typography, Shadows } from "@/constants/theme";
+import { useEvents } from "@/hooks/useEvents";
+import { Spacing, BorderRadius, EventColors, Typography } from "@/constants/theme";
 import { RootStackParamList, Event } from "@/navigation/RootStackNavigator";
-
-const MOCK_EVENTS: Event[] = [
-  {
-    id: "1",
-    title: "Hollywood Bowl Concert",
-    description: "Live music under the stars at the iconic Hollywood Bowl amphitheater.",
-    category: "entertainment",
-    date: "Dec 15, 2025",
-    time: "7:30 PM",
-    address: "2301 N Highland Ave, Los Angeles, CA 90068",
-    latitude: 34.1122,
-    longitude: -118.3391,
-  },
-  {
-    id: "2",
-    title: "Grand Central Market Food Tour",
-    description: "Explore diverse cuisines from around the world at this historic marketplace.",
-    category: "food",
-    date: "Dec 12, 2025",
-    time: "11:00 AM",
-    address: "317 S Broadway, Los Angeles, CA 90013",
-    latitude: 34.0509,
-    longitude: -118.2489,
-  },
-  {
-    id: "3",
-    title: "Lakers vs Celtics",
-    description: "Watch the Lakers take on the Celtics at Crypto.com Arena.",
-    category: "sports",
-    date: "Dec 20, 2025",
-    time: "7:00 PM",
-    address: "1111 S Figueroa St, Los Angeles, CA 90015",
-    latitude: 34.043,
-    longitude: -118.2673,
-  },
-  {
-    id: "4",
-    title: "LACMA Art Exhibition",
-    description: "Explore contemporary art installations at the Los Angeles County Museum of Art.",
-    category: "arts",
-    date: "Dec 10, 2025",
-    time: "10:00 AM",
-    address: "5905 Wilshire Blvd, Los Angeles, CA 90036",
-    latitude: 34.0639,
-    longitude: -118.3592,
-  },
-  {
-    id: "5",
-    title: "Santa Monica Pier Festival",
-    description: "Annual festival with rides, games, and live entertainment on the pier.",
-    category: "entertainment",
-    date: "Dec 18, 2025",
-    time: "12:00 PM",
-    address: "200 Santa Monica Pier, Santa Monica, CA 90401",
-    latitude: 34.0097,
-    longitude: -118.4977,
-  },
-  {
-    id: "6",
-    title: "Koreatown Food Crawl",
-    description: "Sample the best Korean BBQ and street food in LA's Koreatown.",
-    category: "food",
-    date: "Dec 14, 2025",
-    time: "6:00 PM",
-    address: "621 S Western Ave, Los Angeles, CA 90005",
-    latitude: 34.0615,
-    longitude: -118.3095,
-  },
-  {
-    id: "7",
-    title: "Dodgers Spring Training",
-    description: "Watch the Dodgers prepare for the upcoming season.",
-    category: "sports",
-    date: "Dec 22, 2025",
-    time: "1:00 PM",
-    address: "1000 Vin Scully Ave, Los Angeles, CA 90012",
-    latitude: 34.0739,
-    longitude: -118.24,
-  },
-  {
-    id: "8",
-    title: "Getty Center Gardens Tour",
-    description: "Guided tour through the beautiful gardens and architecture of the Getty.",
-    category: "arts",
-    date: "Dec 11, 2025",
-    time: "2:00 PM",
-    address: "1200 Getty Center Dr, Los Angeles, CA 90049",
-    latitude: 34.0781,
-    longitude: -118.4741,
-  },
-];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -167,7 +77,7 @@ function EventCard({
     onToggleFavorite();
   };
 
-  const categoryColor = EventColors[event.category];
+  const categoryColor = EventColors[event.category] || EventColors.entertainment;
 
   return (
     <AnimatedPressable
@@ -247,20 +157,21 @@ export default function EventListScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const { events, isLoading } = useEvents();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
   const filteredEvents = useMemo(() => {
-    let events = MOCK_EVENTS;
+    let filtered = events;
     
     if (activeTab === "favorites") {
-      events = events.filter((event) => favorites.includes(event.id));
+      filtered = filtered.filter((event) => favorites.includes(event.id));
     }
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      events = events.filter(
+      filtered = filtered.filter(
         (event) =>
           event.title.toLowerCase().includes(query) ||
           event.category.toLowerCase().includes(query) ||
@@ -268,8 +179,8 @@ export default function EventListScreen() {
       );
     }
     
-    return events;
-  }, [searchQuery, activeTab, favorites]);
+    return filtered;
+  }, [events, searchQuery, activeTab, favorites]);
 
   const handleEventPress = (event: Event) => {
     navigation.navigate("EventDetails", { event });
@@ -281,6 +192,17 @@ export default function EventListScreen() {
     }
     setActiveTab(tab);
   };
+
+  if (isLoading) {
+    return (
+      <ThemedView style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>
+          Loading events...
+        </ThemedText>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -403,6 +325,14 @@ export default function EventListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: 16,
   },
   searchContainer: {
     flexDirection: "row",
