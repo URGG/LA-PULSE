@@ -20,6 +20,8 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "./RootStackNavigator";
 import MapScreen from "@/screens/MapScreen";
 import EventListScreen from "@/screens/EventListScreen";
+import FavoritesScreen from "@/screens/FavoritesScreen";
+import CategoriesScreen from "@/screens/CategoriesScreen";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -32,6 +34,8 @@ type Tab = {
 const TABS: Tab[] = [
   { key: "map", label: "Map", icon: "map" },
   { key: "events", label: "Events", icon: "calendar" },
+  { key: "favorites", label: "Favorites", icon: "heart" },
+  { key: "categories", label: "Browse", icon: "grid" },
 ];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -55,8 +59,8 @@ function TabBar({
         {
           translateX: interpolate(
             scrollOffset.value,
-            [0, 1],
-            [0, tabWidth]
+            [0, 1, 2, 3],
+            [0, tabWidth, tabWidth * 2, tabWidth * 3]
           ),
         },
       ],
@@ -126,7 +130,7 @@ function TabButton({
     >
       <Feather
         name={tab.icon as any}
-        size={22}
+        size={20}
         color={isActive ? "#FFFFFF" : theme.textSecondary}
       />
       <ThemedText
@@ -222,6 +226,12 @@ export default function SwipeableTabsNavigator() {
         <View key="events" style={styles.page}>
           <EventListScreen />
         </View>
+        <View key="favorites" style={styles.page}>
+          <FavoritesScreen />
+        </View>
+        <View key="categories" style={styles.page}>
+          <CategoriesScreen />
+        </View>
       </PagerView>
       <FloatingHeader />
       <TabBar
@@ -275,7 +285,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
     marginTop: 4,
   },
