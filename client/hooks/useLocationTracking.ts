@@ -14,6 +14,7 @@ export function useLocationTracking(enableTracking: boolean = true) {
   const [location, setLocation] = useState<UserLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  
 
   // Get initial location
   useEffect(() => {
