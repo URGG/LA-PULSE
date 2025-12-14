@@ -1,3 +1,4 @@
+import "dotenv/config"; // MUST BE FIRST!
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -7,6 +8,9 @@ import * as path from "path";
 const app = express();
 const log = console.log;
 
+console.log("🌍 Environment loaded");
+console.log("✅ TICKETMASTER_API_KEY:", process.env.TICKETMASTER_API_KEY ? "SET" : "NOT SET");
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -15,30 +19,13 @@ declare module "http" {
 
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origins = new Set<string>();
+    // Allow all origins for local development
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Credentials", "true");
 
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
-    }
-
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        origins.add(`https://${d.trim()}`);
-      });
-    }
-
-    const origin = req.header("origin");
-
-    if (origin && origins.has(origin)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
-      res.header("Access-Control-Allow-Credentials", "true");
-    }
-
+    // Handle preflight
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);
     }
@@ -162,36 +149,42 @@ function configureExpoAndLanding(app: express.Application) {
     "templates",
     "landing-page.html",
   );
-  const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
-  const appName = getAppName();
+  
+  // Check if template exists
+  if (!fs.existsSync(templatePath)) {
+    log("⚠️  Landing page template not found, skipping...");
+  } else {
+    const landingPageTemplate = fs.readFileSync(templatePath, "utf-8");
+    const appName = getAppName();
 
-  log("Serving static Expo files with dynamic manifest routing");
+    log("Serving static Expo files with dynamic manifest routing");
 
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api")) {
+        return next();
+      }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
+      if (req.path !== "/" && req.path !== "/manifest") {
+        return next();
+      }
 
-    const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
-      return serveExpoManifest(platform, res);
-    }
+      const platform = req.header("expo-platform");
+      if (platform && (platform === "ios" || platform === "android")) {
+        return serveExpoManifest(platform, res);
+      }
 
-    if (req.path === "/") {
-      return serveLandingPage({
-        req,
-        res,
-        landingPageTemplate,
-        appName,
-      });
-    }
+      if (req.path === "/") {
+        return serveLandingPage({
+          req,
+          res,
+          landingPageTemplate,
+          appName,
+        });
+      }
 
-    next();
-  });
+      next();
+    });
+  }
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
@@ -210,9 +203,8 @@ function setupErrorHandler(app: express.Application) {
     const status = error.status || error.statusCode || 500;
     const message = error.message || "Internal Server Error";
 
+    log("❌ Server Error:", message);
     res.status(status).json({ message });
-
-    throw err;
   });
 }
 
@@ -221,9 +213,10 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
-  configureExpoAndLanding(app);
-
+  // Register API routes BEFORE static file serving
   const server = await registerRoutes(app);
+  
+  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 
@@ -235,7 +228,8 @@ function setupErrorHandler(app: express.Application) {
       reusePort: true,
     },
     () => {
-      log(`express server serving on port ${port}`);
+      log(`✅ Express server running on http://localhost:${port}`);
+      log(`📱 API endpoint: http://localhost:${port}/api/events`);
     },
   );
 })();
