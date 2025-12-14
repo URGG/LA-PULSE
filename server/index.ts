@@ -233,3 +233,4 @@ function setupErrorHandler(app: express.Application) {
     },
   );
 })();
+export default app;

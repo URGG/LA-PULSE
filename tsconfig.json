@@ -9,6 +9,6 @@
     },
     "types": ["node"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "api/**/*"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"]
 }
