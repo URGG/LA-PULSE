@@ -15,6 +15,19 @@ type Event = {
   ticketUrl?: string;
 };
 
+// Helper function to deduplicate events by ID
+function deduplicateEvents(events: Event[]): Event[] {
+  const seen = new Map<string, Event>();
+  
+  for (const event of events) {
+    if (!seen.has(event.id)) {
+      seen.set(event.id, event);
+    }
+  }
+  
+  return Array.from(seen.values());
+}
+
 // Helper functions for date/time formatting
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -30,24 +43,87 @@ function formatTime(timeStr: string): string {
   return `${hour12}:${minutes} ${ampm}`;
 }
 
-// ============================================
-// TICKETMASTER API (Entertainment, Sports, Arts)
-// ============================================
+// Expanded mock data
+const MOCK_EVENTS: Event[] = [
+  {
+    id: "mock-1",
+    title: "Hollywood Bowl Summer Concert",
+    description: "Live music under the stars at the iconic Hollywood Bowl amphitheater.",
+    category: "entertainment",
+    date: "Dec 15, 2025",
+    time: "7:30 PM",
+    address: "2301 N Highland Ave, Los Angeles, CA 90068",
+    latitude: 34.1122,
+    longitude: -118.3391,
+    imageUrl: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800",
+    ticketUrl: "https://www.hollywoodbowl.com",
+  },
+  {
+    id: "mock-2",
+    title: "Grand Central Market Food Tour",
+    description: "Explore diverse cuisines from around the world at this historic marketplace.",
+    category: "food",
+    date: "Dec 12, 2025",
+    time: "11:00 AM",
+    address: "317 S Broadway, Los Angeles, CA 90013",
+    latitude: 34.0509,
+    longitude: -118.2489,
+    imageUrl: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800",
+  },
+  {
+    id: "mock-3",
+    title: "Lakers vs Celtics",
+    description: "Watch the Lakers take on the Celtics in this epic NBA rivalry game.",
+    category: "sports",
+    date: "Dec 20, 2025",
+    time: "7:00 PM",
+    address: "1111 S Figueroa St, Los Angeles, CA 90015",
+    latitude: 34.043,
+    longitude: -118.2673,
+    imageUrl: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800",
+  },
+  {
+    id: "mock-4",
+    title: "LACMA Art Exhibition",
+    description: "Explore contemporary art installations at the Los Angeles County Museum of Art.",
+    category: "arts",
+    date: "Dec 10, 2025",
+    time: "10:00 AM",
+    address: "5905 Wilshire Blvd, Los Angeles, CA 90036",
+    latitude: 34.0639,
+    longitude: -118.3592,
+    imageUrl: "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?w=800",
+  },
+  {
+    id: "mock-5",
+    title: "Rooftop Bar at The Standard",
+    description: "Enjoy craft cocktails and stunning city views at this iconic rooftop bar.",
+    category: "bars",
+    date: "Ongoing",
+    time: "8:00 PM",
+    address: "550 S Flower St, Los Angeles, CA 90071",
+    latitude: 34.0487,
+    longitude: -118.2573,
+    imageUrl: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800",
+  },
+];
+
+// Ticketmaster API
 async function fetchTicketmasterEvents(): Promise<Event[]> {
   const apiKey = process.env.TICKETMASTER_API_KEY;
   
   if (!apiKey) {
-    console.log("TICKETMASTER_API_KEY not set");
+    console.log("⚠️  TICKETMASTER_API_KEY not set");
     return [];
   }
 
   try {
     const url = new URL("https://app.ticketmaster.com/discovery/v2/events.json");
     url.searchParams.set("apikey", apiKey);
-    url.searchParams.set("latlong", "34.0522,-118.2437"); // LA coordinates
+    url.searchParams.set("latlong", "34.0522,-118.2437");
     url.searchParams.set("radius", "50");
     url.searchParams.set("unit", "miles");
-    url.searchParams.set("size", "100");
+    url.searchParams.set("size", "50");
     url.searchParams.set("sort", "date,asc");
     
     const now = new Date();
@@ -55,17 +131,25 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
 
     const response = await fetch(url.toString());
     
+    if (response.status === 403) {
+      console.error("❌ Ticketmaster: 403 Forbidden");
+      return [];
+    }
+    
     if (!response.ok) {
-      console.error("Ticketmaster API error:", response.status);
+      console.error("❌ Ticketmaster error:", response.status);
       return [];
     }
 
     const data = await response.json();
     
     if (!data._embedded?.events) {
+      console.log("ℹ️  No Ticketmaster events found");
       return [];
     }
 
+    console.log(`✅ Ticketmaster: ${data._embedded.events.length} events`);
+    
     const events: Event[] = data._embedded.events.map((event: any) => {
       const venue = event._embedded?.venues?.[0];
       const location = venue?.location || {};
@@ -87,7 +171,7 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
 
     return events;
   } catch (error) {
-    console.error("Error fetching Ticketmaster events:", error);
+    console.error("❌ Error fetching Ticketmaster:", error);
     return [];
   }
 }
@@ -122,31 +206,32 @@ function selectBestImage(images: any[]): string | undefined {
   return sorted[0]?.url;
 }
 
-// ============================================
-// YELP API (Food & Bars)
-// ============================================
+// Yelp API
 async function fetchYelpEvents(): Promise<Event[]> {
   const apiKey = process.env.YELP_API_KEY;
   
   if (!apiKey) {
-    console.log("YELP_API_KEY not set");
+    console.log("⚠️  YELP_API_KEY not set");
     return [];
   }
 
   try {
-    // Search for restaurants and bars with events/special offerings
-    const categories = ["restaurants", "bars", "nightlife", "foodtrucks"];
+    // Only search once for each unique category to avoid duplicates
+    const searches = [
+      { category: "restaurants", eventCategory: "food" as const },
+      { category: "bars,nightlife", eventCategory: "bars" as const },
+    ];
+    
     const allEvents: Event[] = [];
 
-    for (const category of categories) {
+    for (const search of searches) {
       const url = new URL("https://api.yelp.com/v3/businesses/search");
       url.searchParams.set("latitude", "34.0522");
       url.searchParams.set("longitude", "-118.2437");
-      url.searchParams.set("radius", "25000"); // 25km
-      url.searchParams.set("categories", category);
-      url.searchParams.set("limit", "25");
+      url.searchParams.set("radius", "15000"); // 15km
+      url.searchParams.set("categories", search.category);
+      url.searchParams.set("limit", "15"); // Reduced to avoid too many duplicates
       url.searchParams.set("sort_by", "rating");
-      url.searchParams.set("open_now", "false");
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -155,7 +240,7 @@ async function fetchYelpEvents(): Promise<Event[]> {
       });
 
       if (!response.ok) {
-        console.error(`Yelp API error for ${category}:`, response.status);
+        console.error(`❌ Yelp error for ${search.category}:`, response.status);
         continue;
       }
 
@@ -166,7 +251,7 @@ async function fetchYelpEvents(): Promise<Event[]> {
           id: `yelp-${business.id}`,
           title: business.name,
           description: business.categories?.map((c: any) => c.title).join(", ") || "Great spot in LA",
-          category: (category === "bars" || category === "nightlife") ? "bars" : "food",
+          category: search.eventCategory,
           date: "Ongoing",
           time: "See hours",
           address: business.location.display_address.join(", "),
@@ -180,164 +265,55 @@ async function fetchYelpEvents(): Promise<Event[]> {
       }
     }
 
+    console.log(`✅ Yelp: ${allEvents.length} businesses`);
     return allEvents;
   } catch (error) {
-    console.error("Error fetching Yelp events:", error);
+    console.error("❌ Error fetching Yelp:", error);
     return [];
   }
 }
 
-// ============================================
-// EVENTBRITE API (Optional - Community Events)
-// ============================================
-async function fetchEventbriteEvents(): Promise<Event[]> {
-  const apiKey = process.env.EVENTBRITE_API_KEY;
-  
-  if (!apiKey) {
-    console.log("EVENTBRITE_API_KEY not set");
-    return [];
-  }
-
-  try {
-    const url = new URL("https://www.eventbriteapi.com/v3/events/search/");
-    url.searchParams.set("location.latitude", "34.0522");
-    url.searchParams.set("location.longitude", "-118.2437");
-    url.searchParams.set("location.within", "50mi");
-    url.searchParams.set("expand", "venue");
-    url.searchParams.set("sort_by", "date");
-
-    const response = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-
-    if (!response.ok) {
-      console.error("Eventbrite API error:", response.status);
-      return [];
-    }
-
-    const data = await response.json();
-
-    if (!data.events) {
-      return [];
-    }
-
-    const events: Event[] = data.events.map((event: any) => {
-      const venue = event.venue;
-      
-      return {
-        id: `eb-${event.id}`,
-        title: event.name.text,
-        description: event.description?.text || event.summary || "Community event",
-        category: categorizeEventbriteEvent(event),
-        date: event.start.local ? formatDate(event.start.local) : "TBA",
-        time: event.start.local ? formatTime(event.start.local.split("T")[1]) : "TBA",
-        address: venue ? venue.address.localized_address_display : "Location TBA",
-        latitude: venue?.latitude ? parseFloat(venue.latitude) : 34.0522,
-        longitude: venue?.longitude ? parseFloat(venue.longitude) : -118.2437,
-        imageUrl: event.logo?.url,
-        ticketUrl: event.url,
-      };
-    });
-
-    return events;
-  } catch (error) {
-    console.error("Error fetching Eventbrite events:", error);
-    return [];
-  }
-}
-
-function categorizeEventbriteEvent(event: any): Event["category"] {
-  const category = event.category?.name?.toLowerCase() || "";
-  const subcategory = event.subcategory?.name?.toLowerCase() || "";
-  
-  if (category.includes("music") || category.includes("entertainment")) return "entertainment";
-  if (category.includes("food") || category.includes("drink")) return "food";
-  if (category.includes("sports") || category.includes("fitness")) return "sports";
-  if (category.includes("arts") || category.includes("culture")) return "arts";
-  if (subcategory.includes("nightlife") || subcategory.includes("bar")) return "bars";
-  
-  return "entertainment";
-}
-
-// ============================================
-// MOCK DATA (Fallback)
-// ============================================
-const MOCK_EVENTS: Event[] = [
-  {
-    id: "mock-1",
-    title: "Hollywood Bowl Concert",
-    description: "Live music under the stars",
-    category: "entertainment",
-    date: "Dec 15, 2025",
-    time: "7:30 PM",
-    address: "2301 N Highland Ave, Los Angeles, CA",
-    latitude: 34.1122,
-    longitude: -118.3391,
-  },
-  {
-    id: "mock-2",
-    title: "Grand Central Market",
-    description: "Diverse food marketplace",
-    category: "food",
-    date: "Ongoing",
-    time: "11:00 AM",
-    address: "317 S Broadway, Los Angeles, CA",
-    latitude: 34.0509,
-    longitude: -118.2489,
-  },
-];
-
-// ============================================
-// MAIN API ENDPOINT
-// ============================================
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/events", async (req, res) => {
     try {
-      console.log("Fetching events from all sources...");
+      console.log("\n🔄 Fetching events...");
       
-      // Fetch from all sources in parallel
-      const [ticketmasterEvents, yelpEvents, eventbriteEvents] = await Promise.all([
+      const [ticketmasterEvents, yelpEvents] = await Promise.all([
         fetchTicketmasterEvents(),
         fetchYelpEvents(),
-        fetchEventbriteEvents(),
       ]);
 
       // Combine all events
       const allEvents = [
         ...ticketmasterEvents,
         ...yelpEvents,
-        ...eventbriteEvents,
       ];
 
-      // Use mock data if no events found
-      const finalEvents = allEvents.length > 0 ? allEvents : MOCK_EVENTS;
+      // IMPORTANT: Deduplicate events by ID
+      const uniqueEvents = deduplicateEvents(allEvents);
 
-      // Sort by date
-      const sortedEvents = finalEvents.sort((a, b) => {
-        if (a.date === "Ongoing") return 1;
-        if (b.date === "Ongoing") return -1;
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      });
-
-      console.log(`Total events: ${sortedEvents.length}`);
-      console.log(`- Ticketmaster: ${ticketmasterEvents.length}`);
-      console.log(`- Yelp: ${yelpEvents.length}`);
-      console.log(`- Eventbrite: ${eventbriteEvents.length}`);
+      // Use real events if available, otherwise use mock data
+      const events = uniqueEvents.length > 0 ? uniqueEvents : MOCK_EVENTS;
+      
+      console.log(`📊 Total events: ${events.length} (after deduplication)`);
+      console.log(`   - Ticketmaster: ${ticketmasterEvents.length}`);
+      console.log(`   - Yelp: ${yelpEvents.length}`);
+      console.log(`   - Unique: ${uniqueEvents.length}\n`);
 
       res.json({
-        events: sortedEvents,
+        events,
         sources: {
           ticketmaster: ticketmasterEvents.length,
           yelp: yelpEvents.length,
-          eventbrite: eventbriteEvents.length,
-          total: sortedEvents.length,
+          total: events.length,
         }
       });
     } catch (error) {
-      console.error("Error in /api/events:", error);
-      res.json({ events: MOCK_EVENTS, sources: { mock: MOCK_EVENTS.length } });
+      console.error("❌ Error in /api/events:", error);
+      res.json({
+        events: MOCK_EVENTS,
+        sources: { mock: MOCK_EVENTS.length }
+      });
     }
   });
 
