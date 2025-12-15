@@ -10,6 +10,7 @@ import {
   FlatList,
   Alert,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
@@ -184,6 +185,7 @@ function MapControlButton({
     </AnimatedPressable>
   );
 }
+   
 
 function EventCard({
   event,
@@ -261,6 +263,8 @@ function EventCard({
   );
 }
 
+// Add this to your MapScreen.tsx - Replace the CustomMarker function
+
 function CustomMarker({
   event,
   isSelected,
@@ -270,15 +274,30 @@ function CustomMarker({
   isSelected: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useTheme();
   const color = EventColors[event.category] || EventColors.entertainment;
   const scale = useSharedValue(isSelected ? 1.2 : 1);
+  const pulseScale = useSharedValue(1);
   
+  // Pulse animation when selected
   React.useEffect(() => {
-    scale.value = withSpring(isSelected ? 1.25 : 1, { damping: 12, stiffness: 200 });
+    scale.value = withSpring(isSelected ? 1.3 : 1, { damping: 12, stiffness: 200 });
+    
+    if (isSelected) {
+      // Pulse effect
+      pulseScale.value = withSpring(1.1, { damping: 8 }, () => {
+        pulseScale.value = withSpring(1, { damping: 8 });
+      });
+    }
   }, [isSelected]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: isSelected ? 0.6 : 0.3,
   }));
 
   const getCategoryIcon = (category: string): string => {
@@ -293,8 +312,11 @@ function CustomMarker({
 
   return (
     <Animated.View style={[styles.customMarkerContainer, animatedStyle]}>
-      <View style={[styles.customMarkerGlow, { backgroundColor: color }]} />
-      <View style={[styles.customMarkerRing, { borderColor: color }]}>
+      {/* Outer glow/pulse effect */}
+      <Animated.View style={[styles.customMarkerGlow, { backgroundColor: color }, pulseStyle]} />
+      
+      {/* Main bubble */}
+      <View style={[styles.customMarkerBubble, { backgroundColor: color, borderColor: '#fff' }]}>
         {event.imageUrl ? (
           <Image
             source={{ uri: event.imageUrl }}
@@ -302,15 +324,86 @@ function CustomMarker({
             contentFit="cover"
           />
         ) : (
-          <View style={[styles.customMarkerIconBg, { backgroundColor: color }]}>
-            <Feather name={getCategoryIcon(event.category) as any} size={18} color="#FFFFFF" />
-          </View>
+          <Feather name={getCategoryIcon(event.category) as any} size={20} color="#FFFFFF" />
         )}
       </View>
+      
+      {/* Bottom pointer/tail */}
       <View style={[styles.customMarkerPointer, { backgroundColor: color }]} />
+      
+      {/* Tap indicator when selected */}
+      {isSelected && (
+        <View style={[styles.tapIndicator, { borderColor: color }]}>
+          <ThemedText style={styles.tapText}>TAP</ThemedText>
+        </View>
+      )}
     </Animated.View>
   );
 }
+
+// Add these new styles to your StyleSheet
+const markerStyles = StyleSheet.create({
+  customMarkerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 60,
+    height: 80,
+  },
+  customMarkerGlow: {
+    position: "absolute",
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    top: 0,
+  },
+  customMarkerBubble: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  customMarkerImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  customMarkerPointer: {
+    width: 12,
+    height: 12,
+    transform: [{ rotate: "45deg" }],
+    marginTop: -6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  tapIndicator: {
+    position: "absolute",
+    bottom: -30,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  tapText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+});
+
+// Merge these styles with your existing styles object
 
 function getDistanceFromLatLonInMiles(
   lat1: number,
@@ -440,26 +533,18 @@ export default function MapScreen() {
     await refreshLocation();
   }, [refreshLocation]);
   
-  const handleMarkerPress = useCallback(
-    (event: Event) => {
-      if (selectedEvent?.id === event.id) {
-        navigation.navigate("EventDetails", { event });
-      } else {
-        setSelectedEvent(event);
-        if (mapRef.current) {
-          const newRegion = {
-            latitude: event.latitude,
-            longitude: event.longitude,
-            latitudeDelta: 0.08,
-            longitudeDelta: 0.08,
-          };
-          setCurrentRegion(newRegion);
-          mapRef.current.animateToRegion(newRegion, 300);
+    const handleMarkerPress = useCallback(
+      (event: Event) => {
+        // Add haptic feedback
+        if (Platform.OS !== "web") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-      }
-    },
-    [navigation, selectedEvent]
-  );
+        
+        // Go directly to event details
+        navigation.navigate("EventDetails", { event });
+      },
+      [navigation]
+    );
   
   const handleMapPress = useCallback(() => {
     setSelectedEvent(null);
@@ -526,8 +611,10 @@ export default function MapScreen() {
                 longitude: event.longitude,
               }}
               onPress={() => handleMarkerPress(event)}
-              tracksViewChanges={false}
+            
               anchor={{ x: 0.5, y: 0.9 }}
+              centerOffset={{ x: 0, y: 0 }}
+                                                  
             >
               <CustomMarker
                 event={event}
