@@ -10,7 +10,6 @@ import {
   FlatList,
   Alert,
 } from "react-native";
-import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
@@ -18,6 +17,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -31,6 +31,7 @@ import { useEvents } from "@/hooks/useEvents";
 import { Spacing, BorderRadius, EventColors, Shadows } from "@/constants/theme";
 import { RootStackParamList, Event } from "@/navigation/RootStackNavigator";
 import { useLocationTracking } from "@/hooks/useLocationTracking";
+
 
 let MapView: any = null;
 let Marker: any = null;
@@ -185,7 +186,6 @@ function MapControlButton({
     </AnimatedPressable>
   );
 }
-   
 
 function EventCard({
   event,
@@ -263,9 +263,11 @@ function EventCard({
   );
 }
 
-// Add this to your MapScreen.tsx - Replace the CustomMarker function
+	
 
-function CustomMarker({
+  	
+// Memoized marker component to prevent unnecessary re-renders
+const CustomMarker = React.memo(({
   event,
   isSelected,
   onPress,
@@ -273,10 +275,9 @@ function CustomMarker({
   event: Event;
   isSelected: boolean;
   onPress: () => void;
-}) {
-  const { theme } = useTheme();
+}) => {
   const color = EventColors[event.category] || EventColors.entertainment;
-  const scale = useSharedValue(isSelected ? 1.2 : 1);
+  const scale = useSharedValue(1);
   const pulseScale = useSharedValue(1);
   
   // Pulse animation when selected
@@ -322,6 +323,9 @@ function CustomMarker({
             source={{ uri: event.imageUrl }}
             style={styles.customMarkerImage}
             contentFit="cover"
+            cachePolicy="memory-disk"
+            priority="high"
+            transition={0}
           />
         ) : (
           <Feather name={getCategoryIcon(event.category) as any} size={20} color="#FFFFFF" />
@@ -339,71 +343,14 @@ function CustomMarker({
       )}
     </Animated.View>
   );
-}
-
-// Add these new styles to your StyleSheet
-const markerStyles = StyleSheet.create({
-  customMarkerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 60,
-    height: 80,
-  },
-  customMarkerGlow: {
-    position: "absolute",
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    top: 0,
-  },
-  customMarkerBubble: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  customMarkerImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  customMarkerPointer: {
-    width: 12,
-    height: 12,
-    transform: [{ rotate: "45deg" }],
-    marginTop: -6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  tapIndicator: {
-    position: "absolute",
-    bottom: -30,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  tapText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  return (
+    prevProps.event.id === nextProps.event.id &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.event.imageUrl === nextProps.event.imageUrl
+  );
 });
-
-// Merge these styles with your existing styles object
 
 function getDistanceFromLatLonInMiles(
   lat1: number,
