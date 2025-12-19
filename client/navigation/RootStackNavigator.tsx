@@ -17,6 +17,23 @@ export type Event = {
   longitude: number;
   imageUrl?: string;
   ticketUrl?: string;
+  
+  // Trending indicators
+  viewCount?: number;
+  favoriteCount?: number;
+  isTrending?: boolean;
+  
+  // Transportation info
+  parkingInfo?: {
+    available: boolean;
+    cost?: string;
+    locations?: string[];
+  };
+  nearbyTransit?: {
+    type: "metro" | "bus" | "light_rail";
+    station: string;
+    distance: string;
+  }[];
 };
 
 export type RootStackParamList = {

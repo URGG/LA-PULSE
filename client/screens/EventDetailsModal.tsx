@@ -201,9 +201,42 @@ export default function EventDetailsModal() {
               {getCategoryLabel(event.category)}
             </ThemedText>
           </View>
+          
+          {/* Trending Badge */}
+          {event.isTrending && (
+            <View style={styles.trendingBadge}>
+              <Feather name="trending-up" size={14} color="#FFFFFF" />
+              <ThemedText style={styles.trendingText}>TRENDING</ThemedText>
+            </View>
+          )}
         </View>
 
         <ThemedText style={styles.title}>{event.title}</ThemedText>
+
+        {/* Stats Row */}
+        {(event.viewCount || event.favoriteCount) && (
+          <View style={styles.statsContainer}>
+            {event.viewCount && event.viewCount > 0 && (
+              <View style={styles.statItem}>
+                <Feather name="eye" size={14} color={theme.textSecondary} />
+                <ThemedText style={[styles.statText, { color: theme.textSecondary }]}>
+                  {event.viewCount > 1000
+                    ? `${(event.viewCount / 1000).toFixed(1)}k views`
+                    : `${event.viewCount} views`
+                  }
+                </ThemedText>
+              </View>
+            )}
+            {event.favoriteCount && event.favoriteCount > 0 && (
+              <View style={styles.statItem}>
+                <Feather name="heart" size={14} color="#FF3B5C" />
+                <ThemedText style={[styles.statText, { color: theme.textSecondary }]}>
+                  {event.favoriteCount} saved
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.infoRow}>
           <View
@@ -240,6 +273,84 @@ export default function EventDetailsModal() {
           {event.description}
         </ThemedText>
 
+        {/* Parking & Transportation Section */}
+        {(event.parkingInfo || (event.nearbyTransit && event.nearbyTransit.length > 0)) && (
+          <>
+            <View style={styles.divider} />
+            <ThemedText style={styles.sectionTitle}>Getting There</ThemedText>
+            
+            {/* Parking Info */}
+            {event.parkingInfo && (
+              <View style={[styles.transportCard, { backgroundColor: theme.backgroundDefault }]}>
+                <View style={styles.transportHeader}>
+                  <View
+                    style={[styles.transportIcon, { backgroundColor: theme.primary + "20" }]}
+                  >
+                    <Feather name="square" size={18} color={theme.primary} />
+                  </View>
+                  <View style={styles.transportInfo}>
+                    <ThemedText style={styles.transportTitle}>Parking</ThemedText>
+                    <ThemedText style={[styles.transportDetail, { color: theme.textSecondary }]}>
+                      {event.parkingInfo.cost}
+                    </ThemedText>
+                  </View>
+                </View>
+                {event.parkingInfo.locations && (
+                  <View style={styles.transportLocations}>
+                    {event.parkingInfo.locations.map((location, idx) => (
+                      <View key={idx} style={styles.locationRow}>
+                        <Feather name="map-pin" size={12} color={theme.textSecondary} />
+                        <ThemedText style={[styles.locationText, { color: theme.textSecondary }]}>
+                          {location}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Public Transit Info */}
+            {event.nearbyTransit && event.nearbyTransit.length > 0 && (
+              <View style={[styles.transportCard, { backgroundColor: theme.backgroundDefault }]}>
+                <View style={styles.transportHeader}>
+                  <View
+                    style={[styles.transportIcon, { backgroundColor: "#00A676" + "20" }]}
+                  >
+                    <Feather name="navigation" size={18} color="#00A676" />
+                  </View>
+                  <View style={styles.transportInfo}>
+                    <ThemedText style={styles.transportTitle}>Public Transit</ThemedText>
+                    <ThemedText style={[styles.transportDetail, { color: theme.textSecondary }]}>
+                      {event.nearbyTransit.length} nearby station{event.nearbyTransit.length > 1 ? 's' : ''}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.transitList}>
+                  {event.nearbyTransit.map((transit, idx) => (
+                    <View key={idx} style={styles.transitRow}>
+                      <View style={[
+                        styles.transitBadge,
+                        { backgroundColor: transit.type === "metro" ? "#E91E63" : "#3F51B5" }
+                      ]}>
+                        <ThemedText style={styles.transitBadgeText}>
+                          {transit.type === "metro" ? "M" : transit.type === "light_rail" ? "L" : "B"}
+                        </ThemedText>
+                      </View>
+                      <View style={styles.transitDetails}>
+                        <ThemedText style={styles.transitStation}>{transit.station}</ThemedText>
+                        <ThemedText style={[styles.transitDistance, { color: theme.textSecondary }]}>
+                          {transit.distance} away
+                        </ThemedText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
         {event.ticketUrl ? (
           <Pressable
             onPress={handleBuyTickets}
@@ -255,7 +366,7 @@ export default function EventDetailsModal() {
         <View style={styles.actionsContainer}>
           <ActionButton
             icon="navigation"
-            label="Get Directions"
+            label="Directions"
             color={theme.primary}
             onPress={handleGetDirections}
           />
@@ -306,6 +417,7 @@ const styles = StyleSheet.create({
   categoryBadgeContainer: {
     flexDirection: "row",
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   categoryBadge: {
     flexDirection: "row",
@@ -319,9 +431,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: Spacing.xs,
   },
+  trendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "#FF3B5C",
+    gap: 4,
+  },
+  trendingText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
   title: {
     ...Typography.h1,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
   },
   infoRow: {
     flexDirection: "row",
@@ -359,6 +499,79 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  transportCard: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+  },
+  transportHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  transportIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.xs,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  transportInfo: {
+    flex: 1,
+  },
+  transportTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  transportDetail: {
+    fontSize: 14,
+  },
+  transportLocations: {
+    marginTop: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  locationText: {
+    fontSize: 13,
+  },
+  transitList: {
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  transitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  transitBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+  },
+  transitBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  transitDetails: {
+    flex: 1,
+  },
+  transitStation: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  transitDistance: {
+    fontSize: 12,
+    marginTop: 2,
   },
   ticketButton: {
     flexDirection: "row",

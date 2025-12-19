@@ -95,6 +95,14 @@ function EventCard({
         animatedStyle,
       ]}
     >
+      {/* Trending Badge */}
+      {event.isTrending && (
+        <View style={styles.trendingBadge}>
+          <Feather name="trending-up" size={12} color="#FFFFFF" />
+          <ThemedText style={styles.trendingText}>TRENDING</ThemedText>
+        </View>
+      )}
+
       <View
         style={[
           styles.categoryIcon,
@@ -111,6 +119,32 @@ function EventCard({
         <ThemedText style={styles.eventTitle} numberOfLines={1}>
           {event.title}
         </ThemedText>
+
+        {/* Stats Row */}
+        {(event.viewCount || event.favoriteCount) && (
+          <View style={styles.statsRow}>
+            {event.viewCount && event.viewCount > 100 && (
+              <View style={styles.statItem}>
+                <Feather name="eye" size={11} color={theme.textSecondary} />
+                <ThemedText style={[styles.statsText, { color: theme.textSecondary }]}>
+                  {event.viewCount > 1000
+                    ? `${(event.viewCount / 1000).toFixed(1)}k`
+                    : event.viewCount
+                  }
+                </ThemedText>
+              </View>
+            )}
+            {event.favoriteCount && event.favoriteCount > 0 && (
+              <View style={styles.statItem}>
+                <Feather name="heart" size={11} color="#FF3B5C" />
+                <ThemedText style={[styles.statsText, { color: theme.textSecondary }]}>
+                  {event.favoriteCount}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={styles.eventMeta}>
           <Feather
             name="calendar"
@@ -153,6 +187,7 @@ function EventCard({
 }
 
 type FilterTab = "all" | "favorites";
+type SortOption = "distance" | "trending" | "date";
 
 export default function EventListScreen() {
   const { theme } = useTheme();
@@ -163,14 +198,17 @@ export default function EventListScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("distance");
 
-  const filteredEvents = useMemo(() => {
+  const filteredAndSortedEvents = useMemo(() => {
     let filtered = events;
     
+    // Filter by tab
     if (activeTab === "favorites") {
       filtered = filtered.filter((event) => favorites.includes(event.id));
     }
     
+    // Filter by search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -181,8 +219,27 @@ export default function EventListScreen() {
       );
     }
     
-    return filtered;
-  }, [events, searchQuery, activeTab, favorites]);
+    // Sort
+    let sorted = [...filtered];
+    switch (sortBy) {
+      case "trending":
+        sorted.sort((a, b) => {
+          const aScore = (a.favoriteCount || 0) * 10 + (a.viewCount || 0);
+          const bScore = (b.favoriteCount || 0) * 10 + (b.viewCount || 0);
+          return bScore - aScore;
+        });
+        break;
+      case "date":
+        // For now, keep original order (you can add date sorting logic)
+        break;
+      case "distance":
+      default:
+        // Keep original order (distance sorting happens in backend/map screen)
+        break;
+    }
+    
+    return sorted;
+  }, [events, searchQuery, activeTab, favorites, sortBy]);
 
   const handleEventPress = (event: Event) => {
     navigation.navigate("EventDetails", { event });
@@ -193,6 +250,13 @@ export default function EventListScreen() {
       Haptics.selectionAsync();
     }
     setActiveTab(tab);
+  };
+
+  const handleSortChange = (sort: SortOption) => {
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+    setSortBy(sort);
   };
 
   if (isLoading) {
@@ -279,8 +343,81 @@ export default function EventListScreen() {
         </Pressable>
       </View>
 
+      {/* Sort Options */}
+      <View style={styles.sortContainer}>
+        <ThemedText style={[styles.sortLabel, { color: theme.textSecondary }]}>
+          Sort by:
+        </ThemedText>
+        <Pressable
+          onPress={() => handleSortChange("distance")}
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.backgroundDefault },
+            sortBy === "distance" && { backgroundColor: theme.primary },
+          ]}
+        >
+          <Feather
+            name="navigation"
+            size={14}
+            color={sortBy === "distance" ? "#FFFFFF" : theme.text}
+          />
+          <ThemedText
+            style={[
+              styles.sortButtonText,
+              { color: sortBy === "distance" ? "#FFFFFF" : theme.text },
+            ]}
+          >
+            Nearby
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => handleSortChange("trending")}
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.backgroundDefault },
+            sortBy === "trending" && { backgroundColor: "#FF3B5C" },
+          ]}
+        >
+          <Feather
+            name="trending-up"
+            size={14}
+            color={sortBy === "trending" ? "#FFFFFF" : theme.text}
+          />
+          <ThemedText
+            style={[
+              styles.sortButtonText,
+              { color: sortBy === "trending" ? "#FFFFFF" : theme.text },
+            ]}
+          >
+            Trending
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => handleSortChange("date")}
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.backgroundDefault },
+            sortBy === "date" && { backgroundColor: theme.secondary },
+          ]}
+        >
+          <Feather
+            name="calendar"
+            size={14}
+            color={sortBy === "date" ? "#FFFFFF" : theme.text}
+          />
+          <ThemedText
+            style={[
+              styles.sortButtonText,
+              { color: sortBy === "date" ? "#FFFFFF" : theme.text },
+            ]}
+          >
+            Date
+          </ThemedText>
+        </Pressable>
+      </View>
+
       <FlatList
-        data={filteredEvents}
+        data={filteredAndSortedEvents}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
@@ -352,6 +489,48 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
     fontSize: 16,
   },
+  tabsContainer: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  sortLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    marginRight: Spacing.xs,
+  },
+  sortButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  sortButtonText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
   listContent: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
@@ -362,6 +541,31 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
+    position: "relative",
+  },
+  trendingBadge: {
+    position: "absolute",
+    top: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: "#FF3B5C",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+    gap: 4,
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  trendingText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   categoryIcon: {
     width: 48,
@@ -378,6 +582,21 @@ const styles = StyleSheet.create({
     ...Typography.h4,
     marginBottom: Spacing.xs,
   },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: 4,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  statsText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
   eventMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -392,24 +611,6 @@ const styles = StyleSheet.create({
   eventLocation: {
     fontSize: 13,
     flex: 1,
-  },
-  tabsContainer: {
-    flexDirection: "row",
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
-  },
-  tabButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    gap: Spacing.xs,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "500",
   },
   favoriteButton: {
     padding: Spacing.xs,

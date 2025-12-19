@@ -13,19 +13,137 @@ type Event = {
   longitude: number;
   imageUrl?: string;
   ticketUrl?: string;
+  viewCount?: number;
+  favoriteCount?: number;
+  isTrending?: boolean;
+  parkingInfo?: {
+    available: boolean;
+    cost?: string;
+    locations?: string[];
+  };
+  nearbyTransit?: {
+    type: "metro" | "bus" | "light_rail";
+    station: string;
+    distance: string;
+  }[];
 };
 
-// Helper function to deduplicate events by ID
-function deduplicateEvents(events: Event[]): Event[] {
-  const seen = new Map<string, Event>();
-  
-  for (const event of events) {
-    if (!seen.has(event.id)) {
-      seen.set(event.id, event);
-    }
+// In-memory storage for view counts and favorites
+const eventStats = new Map<string, { views: number; favorites: number }>();
+
+// Helper to get or initialize stats
+function getEventStats(eventId: string) {
+  if (!eventStats.has(eventId)) {
+    eventStats.set(eventId, {
+      views: Math.floor(Math.random() * 1000), // Random initial views
+      favorites: Math.floor(Math.random() * 100)
+    });
   }
+  return eventStats.get(eventId)!;
+}
+
+// Calculate trending score
+function calculateTrendingScore(views: number, favorites: number): number {
+  return (favorites * 10) + views;
+}
+
+// Determine if event is trending
+function markTrendingEvents(events: Event[]): Event[] {
+  const scores = events.map(e => {
+    const stats = getEventStats(e.id);
+    return calculateTrendingScore(stats.views, stats.favorites);
+  });
   
-  return Array.from(seen.values());
+  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const threshold = avgScore * 1.5; // 50% above average = trending
+  
+  return events.map((event, idx) => {
+    const stats = getEventStats(event.id);
+    const score = scores[idx];
+    
+    return {
+      ...event,
+      viewCount: stats.views,
+      favoriteCount: stats.favorites,
+      isTrending: score > threshold,
+    };
+  });
+}
+
+// Get parking info based on category
+function getParkingInfo(category: Event["category"]): Event["parkingInfo"] {
+  switch (category) {
+    case "sports":
+      return {
+        available: true,
+        cost: "$20-40",
+        locations: ["Stadium parking", "Street parking nearby"],
+      };
+    case "entertainment":
+      return {
+        available: true,
+        cost: "$10-25",
+        locations: ["Venue parking", "Public lots"],
+      };
+    case "food":
+    case "bars":
+      return {
+        available: true,
+        cost: "Free-$15",
+        locations: ["Street parking", "Nearby lots"],
+      };
+    case "arts":
+      return {
+        available: true,
+        cost: "$5-15",
+        locations: ["Museum parking", "Street parking"],
+      };
+    default:
+      return {
+        available: true,
+        cost: "Varies",
+      };
+  }
+}
+
+// Get nearby transit
+function getNearestTransit(latitude: number, longitude: number): Event["nearbyTransit"] {
+  const metroStations = [
+    { name: "Union Station", lat: 34.0560, lng: -118.2349, type: "metro" as const },
+    { name: "Hollywood/Vine", lat: 34.1016, lng: -118.3267, type: "metro" as const },
+    { name: "7th St/Metro Center", lat: 34.0485, lng: -118.2587, type: "metro" as const },
+    { name: "Pershing Square", lat: 34.0489, lng: -118.2513, type: "metro" as const },
+    { name: "Civic Center", lat: 34.0570, lng: -118.2446, type: "metro" as const },
+  ];
+  
+  const withDistance = metroStations.map(station => {
+    const distance = getDistanceInMiles(latitude, longitude, station.lat, station.lng);
+    return {
+      type: station.type,
+      station: station.name,
+      distance: distance < 1 ? `${(distance * 5280).toFixed(0)} ft` : `${distance.toFixed(1)} mi`,
+      distanceNum: distance,
+    };
+  });
+  
+  return withDistance
+    .filter(s => s.distanceNum < 2)
+    .sort((a, b) => a.distanceNum - b.distanceNum)
+    .slice(0, 2);
+}
+
+function getDistanceInMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3959;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 // Helper functions for date/time formatting
@@ -43,7 +161,7 @@ function formatTime(timeStr: string): string {
   return `${hour12}:${minutes} ${ampm}`;
 }
 
-// Expanded mock data
+// Mock data
 const MOCK_EVENTS: Event[] = [
   {
     id: "mock-1",
@@ -108,10 +226,28 @@ const MOCK_EVENTS: Event[] = [
   },
 ];
 
-// Ticketmaster API
+function deduplicateEvents(events: Event[]): Event[] {
+  const seen = new Map<string, Event>();
+  for (const event of events) {
+    if (!seen.has(event.id)) {
+      seen.set(event.id, event);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+// Enhance events with parking and transit info
+function enhanceEvents(events: Event[]): Event[] {
+  return events.map(event => ({
+    ...event,
+    parkingInfo: getParkingInfo(event.category),
+    nearbyTransit: getNearestTransit(event.latitude, event.longitude),
+  }));
+}
+
+// Ticketmaster API (keeping existing implementation)
 async function fetchTicketmasterEvents(): Promise<Event[]> {
   const apiKey = process.env.TICKETMASTER_API_KEY;
-  
   if (!apiKey) {
     console.log("⚠️  TICKETMASTER_API_KEY not set");
     return [];
@@ -130,26 +266,17 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
     url.searchParams.set("startDateTime", now.toISOString().split('.')[0] + "Z");
 
     const response = await fetch(url.toString());
-    
-    if (response.status === 403) {
-      console.error("❌ Ticketmaster: 403 Forbidden");
-      return [];
-    }
-    
     if (!response.ok) {
       console.error("❌ Ticketmaster error:", response.status);
       return [];
     }
 
     const data = await response.json();
-    
     if (!data._embedded?.events) {
       console.log("ℹ️  No Ticketmaster events found");
       return [];
     }
 
-    console.log(`✅ Ticketmaster: ${data._embedded.events.length} events`);
-    
     const events: Event[] = data._embedded.events.map((event: any) => {
       const venue = event._embedded?.venues?.[0];
       const location = venue?.location || {};
@@ -178,45 +305,36 @@ async function fetchTicketmasterEvents(): Promise<Event[]> {
 
 function mapTicketmasterCategory(classifications: any[]): Event["category"] {
   if (!classifications || classifications.length === 0) return "entertainment";
-  
   const segment = classifications[0]?.segment?.name?.toLowerCase() || "";
   const genre = classifications[0]?.genre?.name?.toLowerCase() || "";
-  
   if (segment === "sports" || genre.includes("sport")) return "sports";
   if (segment === "arts & theatre" || genre.includes("art") || genre.includes("theatre")) return "arts";
-  
   return "entertainment";
 }
 
 function selectBestImage(images: any[]): string | undefined {
   if (!images || images.length === 0) return undefined;
-  
   const sorted = [...images].sort((a, b) => {
     const aSize = (a.width || 0) * (a.height || 0);
     const bSize = (b.width || 0) * (b.height || 0);
     return bSize - aSize;
   });
-  
   const preferred = sorted.find(img => img.width >= 640 && img.ratio === "16_9");
   if (preferred) return preferred.url;
-  
   const large = sorted.find(img => img.width >= 400);
   if (large) return large.url;
-  
   return sorted[0]?.url;
 }
 
-// Yelp API
+// Yelp API (keeping existing implementation)
 async function fetchYelpEvents(): Promise<Event[]> {
   const apiKey = process.env.YELP_API_KEY;
-  
   if (!apiKey) {
     console.log("⚠️  YELP_API_KEY not set");
     return [];
   }
 
   try {
-    // Only search once for each unique category to avoid duplicates
     const searches = [
       { category: "restaurants", eventCategory: "food" as const },
       { category: "bars,nightlife", eventCategory: "bars" as const },
@@ -228,15 +346,13 @@ async function fetchYelpEvents(): Promise<Event[]> {
       const url = new URL("https://api.yelp.com/v3/businesses/search");
       url.searchParams.set("latitude", "34.0522");
       url.searchParams.set("longitude", "-118.2437");
-      url.searchParams.set("radius", "15000"); // 15km
+      url.searchParams.set("radius", "15000");
       url.searchParams.set("categories", search.category);
-      url.searchParams.set("limit", "15"); // Reduced to avoid too many duplicates
+      url.searchParams.set("limit", "15");
       url.searchParams.set("sort_by", "rating");
 
       const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: { Authorization: `Bearer ${apiKey}` },
       });
 
       if (!response.ok) {
@@ -245,7 +361,6 @@ async function fetchYelpEvents(): Promise<Event[]> {
       }
 
       const data = await response.json();
-
       if (data.businesses) {
         const events = data.businesses.map((business: any) => ({
           id: `yelp-${business.id}`,
@@ -260,12 +375,10 @@ async function fetchYelpEvents(): Promise<Event[]> {
           imageUrl: business.image_url,
           ticketUrl: business.url,
         }));
-        
         allEvents.push(...events);
       }
     }
 
-    console.log(`✅ Yelp: ${allEvents.length} businesses`);
     return allEvents;
   } catch (error) {
     console.error("❌ Error fetching Yelp:", error);
@@ -274,6 +387,7 @@ async function fetchYelpEvents(): Promise<Event[]> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // GET all events
   app.get("/api/events", async (req, res) => {
     try {
       console.log("\n🔄 Fetching events...");
@@ -283,22 +397,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fetchYelpEvents(),
       ]);
 
-      // Combine all events
-      const allEvents = [
-        ...ticketmasterEvents,
-        ...yelpEvents,
-      ];
-
-      // IMPORTANT: Deduplicate events by ID
+      const allEvents = [...ticketmasterEvents, ...yelpEvents];
       const uniqueEvents = deduplicateEvents(allEvents);
-
-      // Use real events if available, otherwise use mock data
-      const events = uniqueEvents.length > 0 ? uniqueEvents : MOCK_EVENTS;
+      const enhancedEvents = enhanceEvents(uniqueEvents);
+      const eventsWithTrending = markTrendingEvents(enhancedEvents);
       
-      console.log(`📊 Total events: ${events.length} (after deduplication)`);
-      console.log(`   - Ticketmaster: ${ticketmasterEvents.length}`);
-      console.log(`   - Yelp: ${yelpEvents.length}`);
-      console.log(`   - Unique: ${uniqueEvents.length}\n`);
+      const events = eventsWithTrending.length > 0 ? eventsWithTrending : markTrendingEvents(enhanceEvents(MOCK_EVENTS));
+      
+      console.log(`📊 Total events: ${events.length}`);
+      console.log(`🔥 Trending events: ${events.filter(e => e.isTrending).length}`);
 
       res.json({
         events,
@@ -311,10 +418,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("❌ Error in /api/events:", error);
       res.json({
-        events: MOCK_EVENTS,
+        events: markTrendingEvents(enhanceEvents(MOCK_EVENTS)),
         sources: { mock: MOCK_EVENTS.length }
       });
     }
+  });
+
+  // POST to increment view count
+  app.post("/api/events/:id/view", async (req, res) => {
+    const { id } = req.params;
+    const stats = getEventStats(id);
+    stats.views += 1;
+    res.json({ success: true, views: stats.views });
+  });
+
+  // POST to toggle favorite
+  app.post("/api/events/:id/favorite", async (req, res) => {
+    const { id } = req.params;
+    const { favorited } = req.body;
+    const stats = getEventStats(id);
+    stats.favorites += favorited ? 1 : -1;
+    res.json({ success: true, favorites: stats.favorites });
   });
 
   const httpServer = createServer(app);
