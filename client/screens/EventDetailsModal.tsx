@@ -231,7 +231,7 @@ export default function EventDetailsModal() {
               <View style={styles.statItem}>
                 <Feather name="heart" size={14} color="#FF3B5C" />
                 <ThemedText style={[styles.statText, { color: theme.textSecondary }]}>
-                  {event.favoriteCount} saved
+                  {`${event.favoriteCount} saved`}
                 </ThemedText>
               </View>
             )}
@@ -322,7 +322,7 @@ export default function EventDetailsModal() {
                   <View style={styles.transportInfo}>
                     <ThemedText style={styles.transportTitle}>Public Transit</ThemedText>
                     <ThemedText style={[styles.transportDetail, { color: theme.textSecondary }]}>
-                      {event.nearbyTransit.length} nearby station{event.nearbyTransit.length > 1 ? 's' : ''}
+                      {`${event.nearbyTransit.length} nearby station${event.nearbyTransit.length > 1 ? 's' : ''}`}
                     </ThemedText>
                   </View>
                 </View>
@@ -340,7 +340,7 @@ export default function EventDetailsModal() {
                       <View style={styles.transitDetails}>
                         <ThemedText style={styles.transitStation}>{transit.station}</ThemedText>
                         <ThemedText style={[styles.transitDistance, { color: theme.textSecondary }]}>
-                          {transit.distance} away
+                          {`${transit.distance} away`}
                         </ThemedText>
                       </View>
                     </View>

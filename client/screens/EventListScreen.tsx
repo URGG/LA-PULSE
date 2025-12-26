@@ -66,6 +66,7 @@ function EventCard({
 
   const handlePressIn = () => {
     scale.value = withSpring(0.98, { damping: 15, stiffness: 150 });
+    
   };
 
   const handlePressOut = () => {
@@ -121,7 +122,7 @@ function EventCard({
         </ThemedText>
 
         {/* Stats Row */}
-        {(event.viewCount || event.favoriteCount) && (
+        {((event.viewCount && event.viewCount > 100) || (event.favoriteCount && event.favoriteCount > 0)) && (
           <View style={styles.statsRow}>
             {event.viewCount && event.viewCount > 100 && (
               <View style={styles.statItem}>
@@ -129,7 +130,7 @@ function EventCard({
                 <ThemedText style={[styles.statsText, { color: theme.textSecondary }]}>
                   {event.viewCount > 1000
                     ? `${(event.viewCount / 1000).toFixed(1)}k`
-                    : event.viewCount
+                    : `${event.viewCount}`
                   }
                 </ThemedText>
               </View>
@@ -138,7 +139,7 @@ function EventCard({
               <View style={styles.statItem}>
                 <Feather name="heart" size={11} color="#FF3B5C" />
                 <ThemedText style={[styles.statsText, { color: theme.textSecondary }]}>
-                  {event.favoriteCount}
+                  {`${event.favoriteCount}`}
                 </ThemedText>
               </View>
             )}
@@ -338,7 +339,7 @@ export default function EventListScreen() {
               { color: activeTab === "favorites" ? "#FFFFFF" : theme.textSecondary },
             ]}
           >
-            Favorites ({favorites.length})
+            {`Favorites (${favorites.length})`}
           </ThemedText>
         </Pressable>
       </View>
